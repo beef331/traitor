@@ -1,7 +1,10 @@
 import nimterface
-type BoundObject* = concept
-  proc getBounds(a: var Self, b: int): (int, int, int, int)
-  proc doOtherThing(a: Self): int
+type 
+  BoundObject* = concept
+    proc getBounds(a: var Self, b: int): (int, int, int, int)
+    proc doOtherThing(a: Self): int
+  DuckObject* = concept
+    proc quack(a: Self)
 
 type
   MyObj = object
@@ -12,8 +15,10 @@ type
 
 
 MyOtherObj.impl(BoundObject)
+MyOtherObj.impl(DuckObject)
 proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) {.impl.} = (10, 20, 30, 40 * b)
 proc doOtherThing(a: MyOtherObj): int {.impl.} = 300
+checkImpls()
 
 let myValD = MyOtherObj()
 

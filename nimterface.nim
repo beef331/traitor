@@ -87,7 +87,6 @@ proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
               inc fullyImplemented
         return (fullyImplemented == typImpl.len - 1 and implementedNewProc, typImpl[0])
 
-  error("Attempting to implement unknown proc.", pDef)
 
 proc getProcs(val, cncpt: NimNode): seq[NimNode] =
   # Get all proc names for this concept
@@ -139,9 +138,13 @@ macro checkImpls*() =
 macro impl*(pDef: typed): untyped =
   ## Adds `pdef` to `implTable` for all concepts that require it
   ## emits a convert if fully matched
-  var i = 0
+  var
+    i = 0
+    implementsOnce = false
   for concpt in implTable:
     let (fullyImpls, typ) = markIfImpls(pDef, concpt)
+    if pDef.kind != nnkEmpty:
+      implementsOnce = true
     if fullyImpls:
       let
         conceptName = concpt[0][0]
@@ -150,6 +153,9 @@ macro impl*(pDef: typed): untyped =
         genASt(name, i, size = concpt[0].len, typ, conceptName):
           converter name*(obj: typ): ImplObj[size, i] = obj.toImpl(conceptName)
     inc i
+  if not implementsOnce:
+    error("Attempting to implement unknown proc.", pDef)
+
 
 macro toImpl*(val: typed, constraint: typedesc): untyped =
   ## Converts an object to the desired interface
