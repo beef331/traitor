@@ -120,18 +120,21 @@ proc getTypeId(val, cncpt: NimNode): (int, int) =
 
 macro checkImpls*() =
   ## Ensures all types implemenent the procedures, and if not shows all lacking matches
+  var allMissings =""
   for concpts in implTable:
     for impl in concpts[1..^1]:
       if impl[^1].len > 1:
-        var missing = ""
+        var localMissings = ""
         for x in impl[1..^1]:
           if x[0].kind != nnkSym:
             let impl = nnkProcDef.newTree
             x[1].copyChildrenTo(impl)
-            missing.add impl.repr
-            missing.add "\n"
-        if missing.len > 0:
-          error(fmt("Missing impls for type: '{impl[0]}', to match '{concpts[0][0]}':\n{missing}"))
+            localMissings.add impl.repr
+            localMissings.add "\n"
+        if localMissings.len > 0:
+          allMissings.add fmt("\nMissing impls for type: '{impl[0]}', to match '{concpts[0][0]}':\n{localMissings}")
+  if allMissings.len > 0:
+    error(allMissings)
 
 macro impl*(pDef: typed): untyped =
   ## Adds `pdef` to `implTable` for all concepts that require it
@@ -147,7 +150,6 @@ macro impl*(pDef: typed): untyped =
         genASt(name, i, size = concpt[0].len, typ, conceptName):
           converter name*(obj: typ): ImplObj[size, i] = obj.toImpl(conceptName)
     inc i
-  echo result.repr
 
 macro toImpl*(val: typed, constraint: typedesc): untyped =
   ## Converts an object to the desired interface

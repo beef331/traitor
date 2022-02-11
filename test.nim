@@ -34,7 +34,6 @@ proc getBounds(a: var MyRef, b: int): (int, int, int, int) {.impl.} =
 
 proc doOtherThing(a: MyRef): int {.impl.} = 300
 
-
 proc test: MyRef =
   var
     valA = MyObj(x: 0, y: 10, z: 30, w: 100)
