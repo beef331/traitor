@@ -1,16 +1,60 @@
-import std/[macros, macrocache, strformat, genasts, strutils]
+import std/[macros, macrocache, strformat, genasts, strutils, sugar]
 
 type 
   ImplConvDefect = object of Defect
-  ImplObj[PCount, Conc: static int] = object
+  ImplObj[PCount: static int; Conc: static seq[int]] = object
     vTable: array[PCount, pointer]
     idBacker: int # To allow typechecking at runtime
     obj: ptr UncheckedArray[byte]
+  ConceptImpl = enum
+    getTypeName, getTypeImpl
 
 proc id*(impl: ImplObj): int = impl.idBacker
 
 
 var implTable {.compileTime.} = CacheSeq"ConceptImplTable"
+
+iterator conceptImpls(concepts: openArray[int], impl = getTypeName): (int, NimNode) =
+  ## Yields `typeId`, `typeSym` for each impl that matches the `concepts`
+  var actualId = 0
+  
+  for i, typ in implTable[concepts[0]][1..^1]:
+    block searchType:
+      let
+        myType = typ[0]
+        rangeLow = 
+          if concepts.len == 1:
+            0
+          else:
+            1
+
+      for id in rangeLow..<concepts.len:
+        for otherType in implTable[id]:
+          if otherType[0] == myType:
+            case impl
+            of getTypeName:
+              yield (actualId, otherType[0])
+            of getTypeImpl:
+              yield (actualId, otherType)
+
+            inc actualId
+            break searchType
+
+iterator conceptImpls(concepts: Nimnode, impl = getTypeName): (int, NimNode) =
+  assert concepts.kind == nnkBracket
+  let concepts = collect(for x in concepts: int x.intVal)
+  for x in conceptImpls(concepts, impl):
+    yield x
+
+iterator conceptNames(concepts: openArray[int]): NimNode = 
+  for concpt in concepts:
+    yield implTable[concpt][0][0]
+
+iterator conceptNames(concepts: NimNode): NimNode =
+  assert concepts.kind == nnkBracket
+  let concepts = collect(for x in concepts: int x.intval)
+  for concpt in conceptNames concepts:
+    yield concpt
 
 proc replaceSelf(n, replaceWith: NimNode) =
   ## Replaces are instances of `Self` with `replaceWith`
@@ -99,8 +143,8 @@ proc getProcs(val, cncpt: NimNode): seq[NimNode] =
 
 proc getProcIndexAndDef(val, cncpt, name: NimNode): (NimNode, NimNode) =
   ## Gets the proc index and the definition of that proc
-  for impl in implTable[int cncpt.intval][1..^1]:
-    for i, impls in impl[1..^1]:
+  for (_, impls) in conceptImpls(cncpt, getTypeImpl):
+    for i, impls in impls[1..^1]:
       if impls[0].eqIdent(name):
         return (newLit i, impls[1].copyNimTree)
 
@@ -151,7 +195,7 @@ macro impl*(pDef: typed): untyped =
         name = ident "to" & $conceptName
       result = newStmtList(pDef):
         genASt(name, i, size = concpt[0].len, typ, conceptName):
-          converter name*(obj: typ): ImplObj[size, i] = obj.toImpl(conceptName)
+          converter name*(obj: typ): ImplObj[size, @[i]] = obj.toImpl(conceptName)
     inc i
   if not implementsOnce:
     error("Attempting to implement unknown proc.", pDef)
@@ -173,33 +217,34 @@ macro toImpl*(val: typed, constraint: typedesc): untyped =
     when val is ref:
       GC_Ref(obj)
     copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
-    ImplObj[pCount, conceptId](vtable: rawProcs, idBacker: typeId, obj: data)
+    ImplObj[pCount, @[conceptId]](vtable: rawProcs, idBacker: typeId, obj: data)
 
 
 macro ofImpl(val: ImplObj, b: typedesc): untyped =
   ## Does the internal logic for the `of` operator, checking if the id's match the desired type
   let
     inst = val.getTypeInst 
-    cncpt = int inst[^1].intval
-  var ind = -1
-  for i, typ in implTable[cncpt][1..^1]:
-    if typ[0] == b:
-      ind = i
+    concepts = inst[^1]
+  var ind = 0
+  for (id, typ) in conceptImpls(concepts):
+    if typ == b:
+      ind = id
       break
 
   result = genast(val, ind):
     val.id == ind
 
+
 macro unrefObj(val: ImplObj): untyped =
   ## Unref's the object and destroys the object that it wraps
   let
     inst = val.getTypeInst
-    cncpt = int inst[^1].intVal
+    concepts = collect:(for x in inst[^1]: int x.intVal)
   result = nnkCaseStmt.newTree(nnkDotExpr.newTree(val, ident"id"))
-  for i, typ in implTable[cncpt][1..^1]:
+  for (id, name) in conceptImpls(concepts):
     result.add:
-      nnkOfBranch.newTree(newLit i):
-        genAst(val, typ = typ[0]):
+      nnkOfBranch.newTree(newLit id):
+        genAst(val, typ = name):
           when typ is ref:
             GC_UnRef(cast[ptr typ](val.obj)[])
           `=destroy`(cast[ptr typ](val.obj)[])
@@ -209,18 +254,18 @@ macro ensureType(val: ImplObj, b: typedesc): untyped =
   ## Implements the type assurance that the types match, gives helpful mismatch message
   let
     inst = val.getTypeInst 
-    cncpt = int inst[^1].intval
+    concepts = collect(for x in inst[^1]: int x.intval)
     idTable = nnkCaseStmt.newTree(nnkDotExpr.newTree(val, ident"id"))
-  for i, typ in implTable[cncpt][1..^1]:
+  for (id, typ) in conceptImpls(concepts):
     idTable.add:
-      nnkOfBranch.newTree(newLit i, newLit fmt"'{val.repr}' is type '{typ[0].repr}' but wanted '{b.repr}'.")
+      nnkOfBranch.newTree(newLit id, newLit fmt"'{val.repr}' is type '{typ.repr}' but wanted '{b.repr}'.")
   idTable.add nnkElse.newTree(newLit("Unexpected type ID"))
 
   result = genast(val, idTable, ofOp = ofImpl, b):
     if not ofOp(val, b):
       raise newException(ImplConvDefect, idTable)
 
-proc `=destroy`[Count, Conc: static int](obj: var ImplObj[Count, Conc]) =
+proc `=destroy`[Count: static int; Conc: static seq[int]](obj: var ImplObj[Count, Conc]) =
   unrefObj(obj)
 
 
@@ -235,8 +280,17 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
     pTy = nnkProcTy.newTree()
 
   if nnkNilLit in {ind.kind, def.kind}:
-    let concptName = implTable[int inst[^1].intval][0][0]
-    error(fmt"'{field}' proc not found for concept: '{concptName}'.", field)
+    let mismatch = block:
+      var
+        msg = ""
+        count = 0
+      for x in conceptNames inst[^1]:
+        msg.add $x
+        if count < inst.len - 3:
+          msg.add " or "
+        inc count
+      msg
+    error(fmt"'{field}' proc not found for concept: '{mismatch}'.", field)
 
   let
     isPtrObj = def[3][1][^2].typeKind == ntyVar

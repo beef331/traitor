@@ -18,7 +18,7 @@ MyOtherObj.impl(BoundObject)
 MyOtherObj.impl(DuckObject)
 proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) {.impl.} = (10, 20, 30, 40 * b)
 proc doOtherThing(a: MyOtherObj): int {.impl.} = 300
-checkImpls()
+#checkImpls()
 
 let myValD = MyOtherObj()
 
