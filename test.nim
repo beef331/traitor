@@ -49,7 +49,7 @@ impl:
   proc quack(a: MyRef) = 
     echo a.repr
     a.a = 10
-
+echo 10.toImpl(BoundObject, DuckObject)
 
 checkImpls()
 

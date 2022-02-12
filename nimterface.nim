@@ -271,6 +271,9 @@ macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
     procs = getProcs(val, conceptIds)
     rawProcs = nnkBracket.newTree()
     typeId = val.getTypeId(conceptIds)
+  if typeId < 0:
+    error(fmt"Cannot to convert '{val.getType.repr}' to {constraint.repr}.", val)
+
   for x in procs:
     rawProcs.add nnkCast.newTree(ident"pointer", x)
   result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId):
