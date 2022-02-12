@@ -69,6 +69,7 @@ proc test: MyRef =
       valC.toImpl(BoundObject, DuckObject),
       valD.toImpl(BoundObject, DuckObject)]
 
+
   echo "Bound Data"
   for x in myData.mitems:
     if x of MyObj:
@@ -77,7 +78,7 @@ proc test: MyRef =
     echo x.getBounds(3)
     echo x.doOtherThing()
 
-
+  assert (myData[0] as MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
   echo "\nQuacky Data"
   for x in myQuackyData:
     echo x.doOtherThing()

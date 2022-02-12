@@ -321,6 +321,18 @@ macro ensureType(val: ImplObj, b: typedesc): untyped =
 proc `=destroy`[Count: static int; Conc: static seq[int]](obj: var ImplObj[Count, Conc]) =
   unrefObj(obj)
 
+macro isPtr(val: ImplObj): untyped =
+  let
+    inst = val.getTypeInst 
+    concepts = collect(for x in inst[^1]: int x.intval)
+  result = nnkCaseStmt.newTree(nnkDotExpr.newTree(val, ident"id"))
+  for (id, typ) in conceptImpls(concepts):
+    result.add:
+      nnkOfBranch.newTree(newLit id):
+        genast(val, typ):
+          typ is (ref or ptr)
+  result.add nnkElse.newTree(newLit true)
+  echo result.repr
 
 
 {.experimental: "dotOperators".}
@@ -359,12 +371,8 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
   pTy.add def[3].copyNimTree
   pTy.add nnkPragma.newTree(ident"nimcall")
   pTy[0][1][^2] =
-    if isPtrObj:
-      genAst():
-        pointer
-    else:
-      genAst():
-        UncheckedArray[byte]
+    genAst():
+      pointer
 
 
   let prc = genSym(nskLet, $field)
@@ -381,7 +389,11 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
         val.obj
     else:
       genAst(val):
-        val.obj[]
+        if isPtr(val):
+          let pntr = cast[ptr UncheckedArray[int]](val.obj)[0]
+          cast[pointer](pntr)
+        else:
+          cast[pointer](val.obj)
 
   for arg in args:
     result[^1].add arg
