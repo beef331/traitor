@@ -14,45 +14,41 @@ type
     a: int
 
 
-MyOtherObj.impl(BoundObject)
-MyOtherObj.impl(DuckObject)
-
-
-MyObj.impl(BoundObject)
-MyObj.impl(DuckObject)
-
-
-MyRef.impl(BoundObject)
-MyRef.impl(DuckObject)
+MyOtherObj.implements BoundObject, DuckObject
+MyObj.implements BoundObject, DuckObject
+MyRef.implements BoundObject, DuckObject
 
 
 
 proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) {.impl.} = (10, 20, 30, 40 * b)
-proc doOtherThing(a: MyOtherObj): int {.impl.} = 300
-proc quack(a: MyOtherObj) {.impl.} = echo "Hello"
+impl:
+  proc doOtherThing(a: MyOtherObj): int = 300
+  proc quack(a: MyOtherObj) = echo "Hello"
 
 let valD = MyOtherObj()
 
 
+impl:
+  proc getBounds(a: var MyObj, b: int): (int, int, int, int) = 
+    result = (a.x, a.y, a.z, a.w * b)
+    a.x = 100
+    a.y = 300
 
-proc getBounds(a: var MyObj, b: int): (int, int, int, int) {.impl.} = 
-  result = (a.x, a.y, a.z, a.w * b)
-  a.x = 100
-  a.y = 300
+  proc doOtherThing(a: MyObj): int = a.y * a.z * a.w
 
-proc doOtherThing(a: MyObj): int {.impl.} = a.y * a.z * a.w
-
-proc quack(a: MyObj) {.impl.} = echo a
+  proc quack(a: MyObj)  = echo a
 
 
-proc getBounds(a: var MyRef, b: int): (int, int, int, int) {.impl.} = 
-  result = (3, 2, 1, 30)
-  # It's a ptr to a ptr it seems so this doesnt work
-  a.a = 300
+  proc getBounds(a: var MyRef, b: int): (int, int, int, int) =
+    result = (3, 2, 1, 30)
+    # It's a ptr to a ptr it seems so this doesnt work
+    a.a = 300
 
-proc doOtherThing(a: MyRef): int {.impl.} = 300
+  proc doOtherThing(a: MyRef): int = 300
 
-proc quack(a: MyRef) {.impl.} = echo a.repr
+  proc quack(a: MyRef) = 
+    echo a.repr
+    a.a = 10
 
 
 checkImpls()

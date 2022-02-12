@@ -142,23 +142,24 @@ proc replaceSelf(n, replaceWith: NimNode) =
       x.replaceSelf(replaceWith)
 
 
-macro impl*(a: typedesc, b: typedesc) =
+macro implements*(theType: typedesc, concepts: varargs[typed]) =
   ## Adds the implementation of concept `b` to the `implTable`
-  let
-    bImpl = b.getImpl
-    procs = bImpl[^1][^1]
-  var newProcs = newSeqOfCap[NimNode](procs.len)
-  for x in procs:
-    let newProc = x.copyNimTree()
-    newProc.replaceSelf(a)
-    newProcs.add nnkPar.newTree(newEmptyNode(), newProc) # each procedure is a `(sym, proc)`
+  for typ in concepts:
+    let
+      typImpl = typ.getImpl
+      procs = typImpl[^1][^1]
+    var newProcs = newSeqOfCap[NimNode](procs.len)
+    for x in procs:
+      let newProc = x.copyNimTree()
+      newProc.replaceSelf(theType)
+      newProcs.add nnkPar.newTree(newEmptyNode(), newProc) # each procedure is a `(sym, proc)`
 
-  for concpt in implTable:
-    if concpt[0][0] == b:
-      concpt.add newStmtList(a)
-      concpt[^1].add newProcs
-      return
-  implTable.add newStmtList(newStmtList(b, procs), newStmtList(@[a] & newProcs)) # stmtlist(conceptImpl(name, procs), par(typeImpl, procs)) is how the seq is laid out
+    for concpt in implTable:
+      if concpt[0][0] == typ:
+        concpt.add newStmtList(theType)
+        concpt[^1].add newProcs
+        break
+    implTable.add newStmtList(newStmtList(typ, procs), newStmtList(@[theType] & newProcs)) # stmtlist(conceptImpl(name, procs), par(typeImpl, procs)) is how the seq is laid out
 
 
 proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
@@ -224,24 +225,32 @@ macro checkImpls*() =
 macro impl*(pDef: typed): untyped =
   ## Adds `pdef` to `implTable` for all concepts that require it
   ## emits a convert if fully matched
-  var
-    i = 0
-    implementsOnce = false
+  let pDefs =
+    if pDef.kind == nnkProcDef:
+      newStmtList(pDef)
+    else:
+      pDef
   result = newStmtList(pDef)
-  for concpt in implTable:
-    let (fullyImpls, typ) = markIfImpls(pDef, concpt)
-    if pDef.kind != nnkEmpty:
-      implementsOnce = true
-    if fullyImpls:
-      let
-        conceptName = concpt[0][0]
-        name = ident "to" & $conceptName
-      result.add:
-        genASt(name, i, size = concpt[0][1].len, typ, conceptName):
-          converter name*(obj: typ): ImplObj[size, @[i]] = obj.toImpl(conceptName)
-    inc i
-  if not implementsOnce:
-    error("Attempting to implement unknown proc.", pDef)
+  for pDef in pdefs:
+    if pdef.kind != nnkProcDef:
+      error("Cannot implement a non procedure.", pdef)
+    var
+      i = 0
+      implementsOnce = false
+    for concpt in implTable:
+      let (fullyImpls, typ) = markIfImpls(pDef, concpt)
+      if pDef.kind != nnkEmpty:
+        implementsOnce = true
+      if fullyImpls:
+        let
+          conceptName = concpt[0][0]
+          name = ident "to" & $conceptName
+        result.add:
+          genASt(name, i, size = concpt[0][1].len, typ, conceptName):
+            converter name*(obj: typ): ImplObj[size, @[i]] = obj.toImpl(conceptName)
+      inc i
+    if not implementsOnce:
+      error("Attempting to implement unknown proc.", pDef)
 
 proc toId(typ: NimNode): NimNode =
   result = nnkBracket.newTree()
