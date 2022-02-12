@@ -121,7 +121,6 @@ iterator conceptProcs(typ, concepts: NimNode): NimNode =
   for concpt in concepts:
     for impl in implTable[concpt][1..^1]:
       if impl[0] == typ:
-        echo impl.treeRepr
         for prc in impl[1..^1]:
           if not didYield(prc[1]):
             yield prc[0]
@@ -243,7 +242,6 @@ macro impl*(pDef: typed): untyped =
     inc i
   if not implementsOnce:
     error("Attempting to implement unknown proc.", pDef)
-  echo result.repr
 
 proc toId(typ: NimNode): NimNode =
   result = nnkBracket.newTree()
@@ -267,14 +265,13 @@ macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
   for x in procs:
     rawProcs.add nnkCast.newTree(ident"pointer", x)
   result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId):
-    let
-      data = cast[ptr UncheckedArray[byte]](alloc(sizeof(val)))
+    var
+      data = cast[ptr UncheckedArray[byte]](createU(typeOf(val)))
       obj = val
-    copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
     when val is ref:
       GC_Ref(val)
+    copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
     ImplObj[pCount, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
-  echo result.repr
 
 macro ofImpl(val: ImplObj, b: typedesc): untyped =
   ## Does the internal logic for the `of` operator, checking if the id's match the desired type
@@ -364,10 +361,11 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
   pTy[0][1][^2] =
     if isPtrObj:
       genAst():
-        ptr UncheckedArray[byte]
+        pointer
     else:
       genAst():
         UncheckedArray[byte]
+
 
   let prc = genSym(nskLet, $field)
 
@@ -376,8 +374,8 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
       let prc = cast[pTy](val.vtable[ind])
 
   result.add newCall(prc)
+  echo val.treeRepr, " ", isPtrObj
   result[^1].add:
-    # If it's a ptrObject dont derefence, otherwise do reference
     if isPtrObj:
       genAst(val):
         val.obj
@@ -387,6 +385,8 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
 
   for arg in args:
     result[^1].add arg
+  echo result.repr
+
 
 template `of`*(implObj: ImplObj, T: typedesc): bool =
   ofImpl(implObj, T)

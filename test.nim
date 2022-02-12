@@ -47,11 +47,12 @@ proc quack(a: MyObj) {.impl.} = echo a
 
 proc getBounds(a: var MyRef, b: int): (int, int, int, int) {.impl.} = 
   result = (3, 2, 1, 30)
+  # It's a ptr to a ptr it seems so this doesnt work
   a.a = 300
 
 proc doOtherThing(a: MyRef): int {.impl.} = 300
 
-proc quack(a: MyRef) {.impl.} = echo a[]
+proc quack(a: MyRef) {.impl.} = echo a.repr
 
 
 checkImpls()
@@ -68,17 +69,21 @@ proc test: MyRef =
       valC.toImpl(BoundObject, DuckObject),
       valD.toImpl(BoundObject, DuckObject)]
 
+  echo "Bound Data"
   for x in myData.mitems:
     if x of MyObj:
       var myObj = x as MyObj
       assert myObj.x == 0
     echo x.getBounds(3)
     echo x.doOtherThing()
-  
+
+
+  echo "\nQuacky Data"
   for x in myQuackyData:
     echo x.doOtherThing()
     x.quack()
-
+  echo valC.repr
+  echo "\n Dumb Data"
   var a = valA.toBoundObject
   echo a.getBounds(10)
 
@@ -87,4 +92,4 @@ proc test: MyRef =
   echo result.a
 
 let a = test()
-echo a.a
+echo a[]
