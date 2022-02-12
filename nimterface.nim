@@ -1,4 +1,4 @@
-import std/[macros, macrocache, strformat, genasts, strutils, sugar]
+import std/[macros, macrocache, strformat, genasts, strutils, sugar, algorithm, enumerate, tables]
 
 type 
   ImplConvDefect = object of Defect
@@ -17,7 +17,6 @@ var implTable {.compileTime.} = CacheSeq"ConceptImplTable"
 iterator conceptImpls(concepts: openArray[int], impl = getTypeName): (int, NimNode) =
   ## Yields `typeId`, `typeSym` for each impl that matches the `concepts`
   var actualId = 0
-  
   for i, typ in implTable[concepts[0]][1..^1]:
     block searchType:
       let
@@ -40,6 +39,59 @@ iterator conceptImpls(concepts: openArray[int], impl = getTypeName): (int, NimNo
             inc actualId
             break searchType
 
+proc sameParams(a, b: NimNode): bool =
+  ## Checks if the parameters match types including `var/ptr/ref`
+  result = a.len == b.len
+  if result:
+    result = a[^2] == b[^2]
+    if not result:
+      if a[^2].kind in {nnkRefTy, nnkVarTy, nnkPtrTy} and a[^2].kind == b[^2].kind:
+        result = a[^2][0].sameType(b[^2][0])
+      else:
+        result = a[^2].sameType b[^2]
+
+proc sameProc(a, b: NimNode): bool =
+  ## Checks if the two procedures match
+  result = a[0].eqIdent(b[0]) and (a[3].len == b[3].len)
+  if result:
+    let
+      aParams = a[3]
+      bParams = b[3]
+    for i, x in a[3]:
+      if i == 0:
+        result = aParams[0].sameType(bParams[0])
+      else:
+        result = sameParams(x, bParams[i])
+      if not result: break
+
+
+
+iterator procIds(concepts: NimNode): (int, NimNode) =
+  ## returns `id`, `procName`
+  assert concepts.kind == nnkBracket
+  let concepts = collect(for x in concepts: int x.intVal)
+  var
+    yieldedProcs = initTable[string, seq[NimNode]]()
+    ind = 0
+
+  proc didYield(prc: NimNode): bool =
+    let name = $prc[0]
+    if name in yieldedProcs:
+      for oldImpl in yieldedProcs[name]:
+        if oldImpl.sameProc(prc):
+          return true
+      yieldedProcs[name].add prc
+    else:
+      yieldedProcs[name] = @[prc]
+
+  for concpt in concepts:
+    for impl in implTable[concpt][0][1]:
+      if not didYield(impl):
+        yield (ind, impl)
+        inc ind
+
+
+
 iterator conceptImpls(concepts: Nimnode, impl = getTypeName): (int, NimNode) =
   assert concepts.kind == nnkBracket
   let concepts = collect(for x in concepts: int x.intVal)
@@ -49,6 +101,31 @@ iterator conceptImpls(concepts: Nimnode, impl = getTypeName): (int, NimNode) =
 iterator conceptNames(concepts: openArray[int]): NimNode = 
   for concpt in concepts:
     yield implTable[concpt][0][0]
+
+iterator conceptProcs(typ, concepts: NimNode): NimNode =
+  ## returns `id`, `procName` for the given `typ`
+  assert concepts.kind == nnkBracket
+  let concepts = collect(for x in concepts: int x.intVal)
+  var yieldedProcs = initTable[string, seq[NimNode]]()
+
+  proc didYield(prc: NimNode): bool =
+    let name = $prc[0]
+    if name in yieldedProcs:
+      for oldImpl in yieldedProcs[name]:
+        if oldImpl.sameProc(prc):
+          return true
+      yieldedProcs[name].add prc
+    else:
+      yieldedProcs[name] = @[prc]
+
+  for concpt in concepts:
+    for impl in implTable[concpt][1..^1]:
+      if impl[0] == typ:
+        echo impl.treeRepr
+        for prc in impl[1..^1]:
+          if not didYield(prc[1]):
+            yield prc[0]
+
 
 iterator conceptNames(concepts: NimNode): NimNode =
   assert concepts.kind == nnkBracket
@@ -85,32 +162,6 @@ macro impl*(a: typedesc, b: typedesc) =
   implTable.add newStmtList(newStmtList(b, procs), newStmtList(@[a] & newProcs)) # stmtlist(conceptImpl(name, procs), par(typeImpl, procs)) is how the seq is laid out
 
 
-proc sameParams(a, b: NimNode): bool =
-  ## Checks if the parameters match types including `var/ptr/ref`
-  result = a.len == b.len
-  if result:
-    result = a[^2] == b[^2]
-    if not result:
-      if a[^2].kind in {nnkRefTy, nnkVarTy, nnkPtrTy} and a[^2].kind == b[^2].kind:
-        result = a[^2][0].sameType(b[^2][0])
-      else:
-        result = a[^2].sameType b[^2]
-
-proc sameProc(a, b: NimNode): bool =
-  ## Checks if the two procedures match
-  result = a[0].eqIdent(b[0]) and (a[3].len == b[3].len)
-  if result:
-    let
-      aParams = a[3]
-      bParams = b[3]
-    for i, x in a[3]:
-      if i == 0:
-        result = aParams[0].sameType(bParams[0])
-      else:
-        result = sameParams(x, bParams[i])
-      if not result: break
-
-
 proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
   ## Adds `pdef.name` to the `implTable` if it matches the desired impl
   ## returns list of newly fulfilled concepts, for converters to be made
@@ -134,31 +185,23 @@ proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
 
 proc getProcs(val, cncpt: NimNode): seq[NimNode] =
   # Get all proc names for this concept
-  for impl in implTable:
-    if impl[0][0] == cncpt:
-      for impls in impl[1..^1]:
-        if impls[0] == val.getTypeInst:
-          for x in impls[1..^1]:
-            result.add x[0]
+  for prc in conceptProcs(val.getTypeInst, cncpt):
+    result.add prc
 
-proc getProcIndexAndDef(val, cncpt, name: NimNode): (NimNode, NimNode) =
+proc getProcIndexAndDef(val, concpt, name: NimNode): (NimNode, NimNode) =
   ## Gets the proc index and the definition of that proc
-  for (_, impls) in conceptImpls(cncpt, getTypeImpl):
-    for i, impls in impls[1..^1]:
-      if impls[0].eqIdent(name):
-        return (newLit i, impls[1].copyNimTree)
+  for id, prc in procIds(concpt):
+    if prc[0].eqIdent name:
+      result = (newLit id, prc)
+      break
 
-proc getTypeId(val, cncpt: NimNode): (int, int) =
+proc getTypeId(val, cncpt: NimNode): int =
   ## Gets the concept id and type id
-  result = (-1, -1)
+  result = -1
   let valTyp = getTypeInst(val)
-  var i = 0
-  for impl in implTable:
-    if impl[0][0].eqIdent cncpt:
-      for j, typ in impl[1..^1]:
-        if typ[0] == valTyp:
-          return (j, i)
-    inc i
+  for (id, typ) in conceptImpls(cncpt):
+    if typ == valTyp:
+      result = id
 
 
 macro checkImpls*() =
@@ -185,6 +228,7 @@ macro impl*(pDef: typed): untyped =
   var
     i = 0
     implementsOnce = false
+  result = newStmtList(pDef)
   for concpt in implTable:
     let (fullyImpls, typ) = markIfImpls(pDef, concpt)
     if pDef.kind != nnkEmpty:
@@ -193,32 +237,44 @@ macro impl*(pDef: typed): untyped =
       let
         conceptName = concpt[0][0]
         name = ident "to" & $conceptName
-      result = newStmtList(pDef):
-        genASt(name, i, size = concpt[0].len, typ, conceptName):
+      result.add:
+        genASt(name, i, size = concpt[0][1].len, typ, conceptName):
           converter name*(obj: typ): ImplObj[size, @[i]] = obj.toImpl(conceptName)
     inc i
   if not implementsOnce:
     error("Attempting to implement unknown proc.", pDef)
+  echo result.repr
 
+proc toId(typ: NimNode): NimNode =
+  result = nnkBracket.newTree()
+  var ids: seq[int]
+  while ids.len < typ.len:
+    for ind, x in enumerate implTable:
+      if x[0][0] == typ[ids.len]:
+        ids.add ind
+        break
+  ids.sort
+  for id in ids:
+    result.add newLit id
 
-macro toImpl*(val: typed, constraint: typedesc): untyped =
+macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
   ## Converts an object to the desired interface
   let
-    procs = getProcs(val, constraint)
+    conceptIds = constraint.toId()
+    procs = getProcs(val, conceptIds)
     rawProcs = nnkBracket.newTree()
-    (typeId, conceptId) = val.getTypeId(constraint)
+    typeId = val.getTypeId(conceptIds)
   for x in procs:
     rawProcs.add nnkCast.newTree(ident"pointer", x)
-
-  result = genAst(rawProcs, pCount = procs.len, val, conceptId, typeId):
+  result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId):
     let
       data = cast[ptr UncheckedArray[byte]](alloc(sizeof(val)))
       obj = val
-    when val is ref:
-      GC_Ref(obj)
     copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
-    ImplObj[pCount, @[conceptId]](vtable: rawProcs, idBacker: typeId, obj: data)
-
+    when val is ref:
+      GC_Ref(val)
+    ImplObj[pCount, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
+  echo result.repr
 
 macro ofImpl(val: ImplObj, b: typedesc): untyped =
   ## Does the internal logic for the `of` operator, checking if the id's match the desired type
@@ -278,7 +334,6 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
     inst = val.getTypeInst
     (ind, def) = getProcIndexAndDef(val, inst[^1], field)
     pTy = nnkProcTy.newTree()
-
   if nnkNilLit in {ind.kind, def.kind}:
     let mismatch = block:
       var
@@ -286,8 +341,8 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
         count = 0
       for x in conceptNames inst[^1]:
         msg.add $x
-        if count < inst.len - 3:
-          msg.add " or "
+        if count < inst.len - 2:
+          msg.add "',' "
         inc count
       msg
     error(fmt"'{field}' proc not found for concept: '{mismatch}'.", field)
@@ -314,7 +369,7 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
       genAst():
         UncheckedArray[byte]
 
-  let prc = genSym(nskLet, "proc")
+  let prc = genSym(nskLet, $field)
 
   result = newStmtList():
     genast(ind, val, pTy, prc):
