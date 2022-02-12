@@ -330,9 +330,6 @@ macro ensureType(val: ImplObj, b: typedesc): untyped =
     if not ofOp(val, b):
       raise newException(ImplConvDefect, idTable)
 
-proc `=destroy`[Count: static int; Conc: static seq[int]](obj: var ImplObj[Count, Conc]) =
-  unrefObj(obj)
-
 macro isPtr(val: ImplObj): untyped =
   let
     inst = val.getTypeInst 
@@ -344,8 +341,10 @@ macro isPtr(val: ImplObj): untyped =
         genast(val, typ):
           typ is (ref or ptr)
   result.add nnkElse.newTree(newLit true)
-  echo result.repr
 
+proc `=destroy`[Count: static int; Conc: static seq[int]](obj: var ImplObj[Count, Conc]) =
+  unrefObj(obj)
+  dealloc(obj.obj)
 
 {.experimental: "dotOperators".}
 
