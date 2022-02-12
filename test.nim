@@ -1,4 +1,4 @@
-import nimterface
+import traitor
 type 
   BoundObject* = concept
     proc getBounds(a: var Self, b: int): (int, int, int, int)
