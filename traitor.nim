@@ -116,17 +116,26 @@ iterator conceptImpls(concepts: Nimnode, impl = getTypeName): (int, NimNode) =
   for x in conceptImpls(concepts, impl):
     yield x
 
-iterator conceptNames(concepts: openArray[int]): NimNode = 
+iterator conceptNames(concepts: openArray[int]): NimNode =
+  ## Yields Concept names from ids
   for concpt in concepts:
     yield implTable[concpt][0][0]
+
+iterator conceptNames(concepts: NimNode): NimNode =
+  ## Yields the symbols of the concepts from bracketexpr of int ids
+  assert concepts.kind == nnkBracket
+  let concepts = collect(for x in concepts: int x.intval)
+  for concpt in conceptNames concepts:
+    yield concpt
 
 iterator conceptProcs(typ, concepts: NimNode): NimNode =
   ## returns `id`, `procName` for the given `typ`
   assert concepts.kind == nnkBracket
   let concepts = collect(for x in concepts: int x.intVal)
-  var yieldedProcs = initTable[string, seq[NimNode]]()
+  var yieldedProcs = initTable[string, seq[NimNode]]() # Only want to yield an impl once
 
   proc didYield(prc: NimNode): bool =
+    # Checks if this proc has been yielded if not adds it to the yield table
     let name = $prc[0]
     if name in yieldedProcs:
       for oldImpl in yieldedProcs[name]:
@@ -142,13 +151,6 @@ iterator conceptProcs(typ, concepts: NimNode): NimNode =
         for prc in impl[1..^1]:
           if not didYield(prc[1]):
             yield prc[0]
-
-
-iterator conceptNames(concepts: NimNode): NimNode =
-  assert concepts.kind == nnkBracket
-  let concepts = collect(for x in concepts: int x.intval)
-  for concpt in conceptNames concepts:
-    yield concpt
 
 proc replaceSelf(n, replaceWith: NimNode) =
   ## Replaces are instances of `Self` with `replaceWith`
@@ -168,7 +170,7 @@ macro implements*(theType: typedesc, concepts: varargs[typed]) =
     var newProcs = newSeqOfCap[NimNode](procs.len)
     for x in procs:
       let newProc = x.copyNimTree()
-      newProc.replaceSelf(theType)
+      newProc.replaceSelf(theType) # Replace "a: Self"
       newProcs.add nnkPar.newTree(newEmptyNode(), newProc) # each procedure is a `(sym, proc)`
 
     for concpt in implTable:
@@ -184,16 +186,16 @@ proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
   ## returns list of newly fulfilled concepts, for converters to be made
   for iProc in concpt[0][^1]:
     for typImpl in concpt[1..^1]:
-      if iProc.sameProc pDef:
+      if iProc.sameProc pDef: # If we hit a same proc add it
         var
-          fullyImplemented = 0
-          implementedNewProc = false
+          fullyImplemented = 0 # Count how many procedures are implemented
+          implementedNewProc = false # If this ticked a implementation over
         for impl in typImpl:
-          if impl.kind == nnkPar:
+          if impl.kind == nnkPar: # Due to storing `(sym, proc)` inside the impl table
             if impl[1].sameProc(pDef) and impl[0].kind == nnkEmpty:
-              impl[0] = pDef[0]
+              impl[0] = pDef[0] # Bind the name to the pdef we're adding, so we can use it later
               implementedNewProc = true
-            if impl[0].kind == nnkSym:
+            if impl[0].kind == nnkSym: # We hit something already implemented
               inc fullyImplemented
         return (fullyImplemented == typImpl.len - 1 and implementedNewProc, typImpl[0])
 
@@ -256,7 +258,8 @@ macro implObj*(concepts: varargs[typed]): untyped =
 
 macro impl*(pDef: typed): untyped =
   ## Adds `pdef` to `implTable` for all concepts that require it
-  ## emits a convert if fully matched
+  ## emits a converter if fully matched.
+  ## Works on blocks of procedures and also as a pragma.
   let pDefs =
     if pDef.kind == nnkProcDef:
       newStmtList(pDef)
@@ -292,13 +295,15 @@ macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
     error(fmt"Cannot to convert '{val.getType.repr}' to {constraint.repr}.", val)
 
   for x in procs:
+    # Procs are pointers but are non homogenous so cast them to be homgoenous
     rawProcs.add nnkCast.newTree(ident"pointer", x)
+
   result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId):
     var
       data = cast[ptr UncheckedArray[byte]](createU(typeOf(val)))
-      obj = val
+      obj = val # So we support `MyObj(a: 100).toImpl(SomeConcept)`
     when val is ref:
-      GC_Ref(val)
+      GC_Ref(val) # So ref types behave properly
     copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
     ImplObj[pCount, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
 
@@ -309,6 +314,7 @@ macro ofImpl(val: ImplObj, b: typedesc): untyped =
     concepts = inst[^1]
   var ind = 0
   for (id, typ) in conceptImpls(concepts):
+    # Searches for the type ID, breaking when found
     if typ == b:
       ind = id
       break
@@ -324,12 +330,13 @@ macro unrefObj(val: ImplObj): untyped =
     concepts = collect:(for x in inst[^1]: int x.intVal)
   result = nnkCaseStmt.newTree(nnkDotExpr.newTree(val, ident"id"))
   for (id, name) in conceptImpls(concepts):
+    # id is the `typeId` and needed for knowing the underlying type
     result.add:
       nnkOfBranch.newTree(newLit id):
         genAst(val, typ = name):
           when typ is ref:
-            GC_UnRef(cast[ptr typ](val.obj)[])
-          `=destroy`(cast[ptr typ](val.obj)[])
+            GC_UnRef(cast[ptr typ](val.obj)[]) # Try not to leak GC'd memory
+          `=destroy`(cast[ptr typ](val.obj)[]) # Custom destructors should work
   result.add nnkElse.newTree(nnkDiscardstmt.newTree(newEmptyNode()))
 
 macro ensureType(val: ImplObj, b: typedesc): untyped =
@@ -338,21 +345,25 @@ macro ensureType(val: ImplObj, b: typedesc): untyped =
     inst = val.getTypeInst 
     concepts = collect(for x in inst[^1]: int x.intval)
     idTable = nnkCaseStmt.newTree(nnkDotExpr.newTree(val, ident"id"))
+  # Makes a case statement for figuring out the actual type and storing the good message
   for (id, typ) in conceptImpls(concepts):
     idTable.add:
       nnkOfBranch.newTree(newLit id, newLit fmt"'{val.repr}' is type '{typ.repr}' but wanted '{b.repr}'.")
   idTable.add nnkElse.newTree(newLit("Unexpected type ID"))
 
   result = genast(val, idTable, ofOp = ofImpl, b):
-    if not ofOp(val, b):
+    if not ofOp(val, b): # Probably should only be enabled for debug/release?
       raise newException(ImplConvDefect, idTable)
 
 macro isPtr(val: ImplObj): untyped =
+  ## Figures out if the type is a `ptr` or `ref` to enable proper semantics
+  
   let
     inst = val.getTypeInst 
     concepts = collect(for x in inst[^1]: int x.intval)
   result = nnkCaseStmt.newTree(nnkDotExpr.newTree(val, ident"id"))
   for (id, typ) in conceptImpls(concepts):
+    # Case statement emits `of id: typ is (ref or ptr)`
     result.add:
       nnkOfBranch.newTree(newLit id):
         genast(val, typ):
@@ -371,8 +382,8 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
     inst = val.getTypeInst
     (ind, def) = getProcIndexAndDef(val, inst[^1], field)
     pTy = nnkProcTy.newTree()
-  if nnkNilLit in {ind.kind, def.kind}:
-    let mismatch = block:
+  if nnkNilLit in {ind.kind, def.kind}: # Should be nil on error
+    let mismatch = block: # Make a purdy error message, people love those I hear
       var
         msg = ""
         count = 0
@@ -385,7 +396,7 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
     error(fmt"'{field}' proc not found for concept: '{mismatch}'.", field)
 
   let
-    isPtrObj = def[3][1][^2].typeKind == ntyVar
+    isPtrObj = def[3][1][^2].typeKind == ntyVar # might need to add more later
 
   case val.kind
   of nnkHiddenDeref:
@@ -398,20 +409,21 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
 
   pTy.add def[3].copyNimTree
   pTy.add nnkPragma.newTree(ident"nimcall")
-  pTy[0][1][^2] =
+  pTy[0][1][^2] = # Replace paramter with pointer, seems to work but I have a feeling, small objects will fail
     genAst():
       pointer
 
 
-  let prc = genSym(nskLet, $field)
+  let prc = genSym(nskLet, $field) # nice name for proc incase of errors
 
   result = newStmtList():
     genast(ind, val, pTy, prc):
-      let prc = cast[pTy](val.vtable[ind])
+      let prc = cast[pTy](val.vtable[ind]) # cast proc to our original type but with `pointer` as first arg
 
   result.add newCall(prc)
-  echo val.treeRepr, " ", isPtrObj
+
   result[^1].add:
+    # Handle first parameter our object
     if isPtrObj:
       genAst(val):
         val.obj
@@ -423,19 +435,20 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
         else:
           cast[pointer](val.obj)
 
-  for arg in args:
+  for arg in args: # Add remaining args
     result[^1].add arg
-  echo result.repr
 
 
 template `of`*(implObj: ImplObj, T: typedesc): bool =
+  ## Returns true if the `implObj` is really a `T`
   ofImpl(implObj, T)
 
 template `as`*(implObj: ImplObj, T: typedesc): untyped =
+  ## Converts `implObj` to `T` raising a defect if it's not.
   ensureType(implObj, T)
   when T is ref:
     let val = cast[ptr T](implObj.obj)[]
-    Gc_Ref(val)
+    Gc_Ref(val) # Needed since we're instantiating from a cast
     val
   else:
     cast[ptr T](implObj.obj)[]
