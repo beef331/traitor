@@ -14,6 +14,18 @@ proc id*(impl: ImplObj): int = impl.idBacker
 
 var implTable {.compileTime.} = CacheSeq"ConceptImplTable"
 
+proc toId(typ: NimNode): NimNode =
+  result = nnkBracket.newTree()
+  var ids: seq[int]
+  while ids.len < typ.len:
+    for ind, x in enumerate implTable:
+      if x[0][0] == typ[ids.len]:
+        ids.add ind
+        break
+  ids.sort
+  for id in ids:
+    result.add newLit id
+
 iterator conceptImpls(concepts: openArray[int], impl = getTypeName): (int, NimNode) =
   ## Yields `typeId`, `typeSym` for each impl that matches the `concepts`
   var actualId = 0
@@ -64,6 +76,9 @@ proc sameProc(a, b: NimNode): bool =
         result = sameParams(x, bParams[i])
       if not result: break
 
+iterator `[]`(n: NimNode, slice: HSlice[int, BackwardsIndex]): NimNode =
+  for i in slice.a .. n.len - int(slice.b):
+    yield n[i]
 
 
 iterator procIds(concepts: NimNode): (int, NimNode) =
@@ -89,8 +104,6 @@ iterator procIds(concepts: NimNode): (int, NimNode) =
       if not didYield(impl):
         yield (ind, impl)
         inc ind
-
-
 
 iterator conceptImpls(concepts: Nimnode, impl = getTypeName): (int, NimNode) =
   assert concepts.kind == nnkBracket
@@ -141,7 +154,6 @@ proc replaceSelf(n, replaceWith: NimNode) =
     else:
       x.replaceSelf(replaceWith)
 
-
 macro implements*(theType: typedesc, concepts: varargs[typed]) =
   ## Adds the implementation of concept `b` to the `implTable`
   for typ in concepts:
@@ -184,9 +196,16 @@ proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
 
 
 proc getProcs(val, cncpt: NimNode): seq[NimNode] =
-  # Get all proc names for this concept
+  ## Get all proc names for this concept for the type
   for prc in conceptProcs(val.getTypeInst, cncpt):
     result.add prc
+
+proc getProcs(concepts: openArray[int]): seq[NimNode] =
+  ## Get all the proc names for this concept
+  for concpt in concepts:
+    for prc in implTable[concpt][0][1]:
+      echo prc.treeRepr
+      result.add prc[0]
 
 proc getProcIndexAndDef(val, concpt, name: NimNode): (NimNode, NimNode) =
   ## Gets the proc index and the definition of that proc
@@ -222,6 +241,17 @@ macro checkImpls*() =
   if allMissings.len > 0:
     error(allMissings)
 
+macro implObj*(concepts: varargs[typed]): untyped =
+  ## Generates a type for the object from concepts,
+  ## useful for making typedescs
+  let
+    ids = collect:(for x in toId(concepts): int x.intval)
+    procs = getProcs(ids)
+
+  result = genAst(ids, pcount = procs.len):
+    ImplObj[pcount, ids]
+
+
 macro impl*(pDef: typed): untyped =
   ## Adds `pdef` to `implTable` for all concepts that require it
   ## emits a convert if fully matched
@@ -234,9 +264,7 @@ macro impl*(pDef: typed): untyped =
   for pDef in pdefs:
     if pdef.kind != nnkProcDef:
       error("Cannot implement a non procedure.", pdef)
-    var
-      i = 0
-      implementsOnce = false
+    var implementsOnce = false
     for concpt in implTable:
       let (fullyImpls, typ) = markIfImpls(pDef, concpt)
       if pDef.kind != nnkEmpty:
@@ -246,23 +274,10 @@ macro impl*(pDef: typed): untyped =
           conceptName = concpt[0][0]
           name = ident "to" & $conceptName
         result.add:
-          genASt(name, i, size = concpt[0][1].len, typ, conceptName):
-            converter name*(obj: typ): ImplObj[size, @[i]] = obj.toImpl(conceptName)
-      inc i
+          genASt(name, typ, conceptName):
+            converter name*(obj: typ): implObj(conceptName) = obj.toImpl(conceptName)
     if not implementsOnce:
       error("Attempting to implement unknown proc.", pDef)
-
-proc toId(typ: NimNode): NimNode =
-  result = nnkBracket.newTree()
-  var ids: seq[int]
-  while ids.len < typ.len:
-    for ind, x in enumerate implTable:
-      if x[0][0] == typ[ids.len]:
-        ids.add ind
-        break
-  ids.sort
-  for id in ids:
-    result.add newLit id
 
 macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
   ## Converts an object to the desired interface
