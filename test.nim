@@ -13,12 +13,15 @@ type
   MyRef = ref object
     a: int
 
-
 MyOtherObj.implements BoundObject, DuckObject
 MyObj.implements BoundObject, DuckObject
 MyRef.implements BoundObject, DuckObject
 
-
+emitConverters(
+  BoundObject,
+  DuckObject,
+  [BoundObject, DuckObject]
+  )
 
 proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) {.impl.} = (10, 20, 30, 40 * b)
 impl:
@@ -57,12 +60,12 @@ proc test: MyRef =
     valA = MyObj(x: 0, y: 10, z: 30, w: 100)
     valB = MyOtherObj()
     valC = MyRef()
-    myData = [valA.toBoundObject, valB, valC, valD]
+    myData = [valA.toImpl BoundObject, valB, valC, valD]
     myQuackyData = [
       valA.toImpl(BoundObject, DuckObject),
-      valB.toImpl(BoundObject, DuckObject),
-      valC.toImpl(BoundObject, DuckObject),
-      valD.toImpl(BoundObject, DuckObject)]
+      valB,
+      valC,
+      valD]
 
 
   echo "Bound Data"

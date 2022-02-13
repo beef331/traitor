@@ -15,13 +15,22 @@ proc id*(impl: ImplObj): int = impl.idBacker
 var implTable {.compileTime.} = CacheSeq"ConceptImplTable"
 
 proc toId(typ: NimNode): NimNode =
+  ## Converts symbols to their ID, could use a table,
+  ## but wouldnt allow same name interfaces.
   result = nnkBracket.newTree()
+  let typ =
+    if typ.kind == nnkSym:
+      nnkBracket.newTree(typ)
+    else:
+      typ
   var ids: seq[int]
-  while ids.len < typ.len:
-    for ind, x in enumerate implTable:
-      if x[0][0] == typ[ids.len]:
-        ids.add ind
-        break
+  for i in 0..<typ.len:
+    block search:
+      for ind, x in enumerate implTable:
+        if x[0][0] == typ[ids.len]:
+          ids.add ind
+          break search
+      error(fmt"Cannot find {typ[ids.len].repr}, may not be subscribed yet with 'implements'.", typ[ids.len])
   ids.sort
   for id in ids:
     result.add newLit id
@@ -321,6 +330,29 @@ macro ofImpl(val: ImplObj, b: typedesc): untyped =
 
   result = genast(val, ind):
     val.id == ind
+
+macro emitConverters*(concepts: varargs[typed]): untyped =
+  result = newStmtList()
+  for concpt in concepts:
+    let 
+      typCall = nnkCall.newTree(bindsym"implObj")
+      valName = ident"val"
+      toImplCall = newCall(bindSym"toImpl", valName)
+    case concpt.kind
+    of nnkSym:
+      typCall.add concpt
+      toImplCall.add concpt
+    of nnkBracket:
+      for typ in concpt:
+        typCall.add typ
+        toImplCall.add typ
+    else: discard
+
+
+    result.add:
+      genAst(typCall, toImplCall, valName, name = genSym(nskConverter, "toImplObj")):
+        converter name[T](valName: T): typCall = toImplCall
+    echo result.repr
 
 
 macro unrefObj(val: ImplObj): untyped =
