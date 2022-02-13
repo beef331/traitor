@@ -57,8 +57,13 @@ proc sameParams(a, b: NimNode): bool =
   if result:
     result = a[^2] == b[^2]
     if not result:
-      if a[^2].kind in {nnkRefTy, nnkVarTy, nnkPtrTy} and a[^2].kind == b[^2].kind:
-        result = a[^2][0].sameType(b[^2][0])
+      if a[^2].kind in {nnkRefTy, nnkVarTy, nnkPtrTy}:
+        if a[^2][0].eqIdent"Self":
+          result = true
+        elif a[^2].kind == b[^2].kind:
+          result = a[^2][0].sameType(b[^2][0])
+      elif a[^2].eqIdent"Self":
+        result = true
       else:
         result = a[^2].sameType b[^2]
 
@@ -179,9 +184,7 @@ proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
   ## returns list of newly fulfilled concepts, for converters to be made
   for iProc in concpt[0][^1]:
     for typImpl in concpt[1..^1]:
-      let newTyp = iProc.copyNimTree
-      newTyp.replaceSelf(typImpl[0])
-      if newTyp.sameProc pDef:
+      if iProc.sameProc pDef:
         var
           fullyImplemented = 0
           implementedNewProc = false
@@ -204,7 +207,6 @@ proc getProcs(concepts: openArray[int]): seq[NimNode] =
   ## Get all the proc names for this concept
   for concpt in concepts:
     for prc in implTable[concpt][0][1]:
-      echo prc.treeRepr
       result.add prc[0]
 
 proc getProcIndexAndDef(val, concpt, name: NimNode): (NimNode, NimNode) =
@@ -231,7 +233,7 @@ macro checkImpls*() =
       if impl[^1].len > 1:
         var localMissings = ""
         for x in impl[1..^1]:
-          if x[0].kind != nnkSym:
+          if x[0].kind != nnkSym: # If the the sym slot is empty it's an unimplemented proc
             let impl = nnkProcDef.newTree
             x[1].copyChildrenTo(impl)
             localMissings.add impl.repr
