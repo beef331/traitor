@@ -483,3 +483,6 @@ template `as`*(implObj: ImplObj, T: typedesc[not ImplObj]): untyped =
     val
   else:
     cast[ptr T](implObj.obj)[]
+
+template to*(implObj: ImplObj, T: typedesc[not ImplObj]): untyped =
+  implObj as T

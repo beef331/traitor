@@ -86,3 +86,5 @@ for x in myQuackyData.mitems:
   x.quack()
 assert myData[2] as MyRef == valC
 assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 233)
+myQuackyData[1].to(MyOtherObj).a = 100
+assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 100)
