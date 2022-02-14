@@ -30,7 +30,7 @@ proc toId(typ: NimNode): NimNode =
         if x[0][0] == typ[ids.len]:
           ids.add ind
           break search
-      error(fmt"Cannot find {typ[ids.len].repr}, may not be subscribed yet with 'implements'.", typ[ids.len])
+      error(fmt"Cannot find {typ[ids.len].repr}, it is not be subscribed with 'implements'.", typ[ids.len])
   ids.sort
   for id in ids:
     result.add newLit id
@@ -332,28 +332,27 @@ macro ofImpl(val: ImplObj, b: typedesc): untyped =
     val.id == ind
 
 macro emitConverters*(concepts: varargs[typed]): untyped =
+  ## Generates converters for each type passed
   result = newStmtList()
   for concpt in concepts:
     let 
       typCall = nnkCall.newTree(bindsym"implObj")
       valName = ident"val"
       toImplCall = newCall(bindSym"toImpl", valName)
+
     case concpt.kind
     of nnkSym:
       typCall.add concpt
       toImplCall.add concpt
     of nnkBracket:
-      for typ in concpt:
+      for i, typ in concpt:
         typCall.add typ
         toImplCall.add typ
+
     else: discard
-
-
     result.add:
       genAst(typCall, toImplCall, valName, name = genSym(nskConverter, "toImplObj")):
         converter name[T](valName: T): typCall = toImplCall
-    echo result.repr
-
 
 macro unrefObj(val: ImplObj): untyped =
   ## Unref's the object and destroys the object that it wraps
