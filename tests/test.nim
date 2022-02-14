@@ -1,4 +1,5 @@
-import traitor
+import ../traitor
+import std/unittest
 type 
   BoundObject* = concept
     proc getBounds(a: var Self, b: int): (int, int, int, int)
@@ -59,32 +60,32 @@ var
   valA = MyObj(x: 0, y: 10, z: 30, w: 100)
   valB = MyOtherObj()
   valC = MyRef()
+
+test "Basic data logic":
+  var myData = [valA.toImpl BoundObject, valB, valC, valD]
   
+  for x in myData.mitems:
+    if x of MyObj:
+      assert x.to(MyObj).x == 0
+      assert x.getBounds(3) == (valA.x, valA.y, valA.z, valA.w * 3)
+      let myObj = x as MyObj
+      assert x.doOtherThing() == myObj.y * myObj.z * myObj.w
+    elif x of MyRef:
+      assert x.getBounds(3) == (3, 2, 1, 30)
+    elif x of MyOtherObj:
+      assert x.getBounds(3) == (10, 20, 30, 120)
+      assert x.doOtherThing() == 300
   
-var myData = [valA.toImpl BoundObject, valB, valC, valD]
+  assert (myData[0] as MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
+  assert myData[2] as MyRef == valC # Check the ref is the same
 
-for x in myData.mitems:
-  if x of MyObj:
-    var myObj = x as MyObj
-    assert myObj.x == 0
-    assert x.getBounds(3) == (valA.x, valA.y, valA.z, valA.w * 3)
-    myObj = x as MyObj
-    assert x.doOtherThing() == myObj.y * myObj.z * myObj.w
-  elif x of MyRef:
-    assert x.getBounds(3) == (3, 2, 1, 30)
-  elif x of MyOtherObj:
-    assert x.getBounds(3) == (10, 20, 30, 120)
-    assert x.doOtherThing() == 300
+test "Duck testing":
+  var myQuackyData = [valA.toImpl(BoundObject, DuckObject), valB, valC, valD]
 
-assert (myData[0] as MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
+  for x in myQuackyData.mitems:
+    discard x.doOtherThing()
+    x.quack()
 
-
-var myQuackyData = [valA.toImpl(BoundObject, DuckObject), valB, valC, valD]
-
-for x in myQuackyData.mitems:
-  discard x.doOtherThing()
-  x.quack()
-assert myData[2] as MyRef == valC
-assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 233)
-myQuackyData[1].to(MyOtherObj).a = 100
-assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 100)
+  assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 233)
+  myQuackyData[1].to(MyOtherObj).a = 100
+  assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 100) # Tests if field access works

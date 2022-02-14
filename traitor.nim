@@ -1,4 +1,4 @@
-import std/[macros, macrocache, strformat, genasts, strutils, sugar, algorithm, enumerate, tables]
+import std/[macros, macrocache, strformat, genasts, sugar, algorithm, enumerate, tables]
 
 type 
   ImplConvDefect = object of Defect
@@ -485,4 +485,5 @@ template `as`*(implObj: ImplObj, T: typedesc[not ImplObj]): untyped =
     cast[ptr T](implObj.obj)[]
 
 template to*(implObj: ImplObj, T: typedesc[not ImplObj]): untyped =
+  ## Alias of `as` used for easier chaining on conversion(accessing fields and the like.)
   implObj as T
