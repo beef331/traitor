@@ -474,7 +474,7 @@ template `of`*(implObj: ImplObj, T: typedesc): bool =
   ## Returns true if the `implObj` is really a `T`
   ofImpl(implObj, T)
 
-template `as`*(implObj: ImplObj, T: typedesc): untyped =
+template `as`*(implObj: ImplObj, T: typedesc[not ImplObj]): untyped =
   ## Converts `implObj` to `T` raising a defect if it's not.
   ensureType(implObj, T)
   when T is ref:

@@ -4,12 +4,13 @@ type
     proc getBounds(a: var Self, b: int): (int, int, int, int)
     proc doOtherThing(a: Self): int
   DuckObject* = concept
-    proc quack(a: Self)
+    proc quack(a: var Self)
 
 type
   MyObj = object
     x, y, z, w: int
   MyOtherObj = object
+    a: byte
   MyRef = ref object
     a: int
 
@@ -26,7 +27,8 @@ emitConverters(
 proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) {.impl.} = (10, 20, 30, 40 * b)
 impl:
   proc doOtherThing(a: MyOtherObj): int = 300
-  proc quack(a: MyOtherObj) = echo "Hello"
+  proc quack(a: var MyOtherObj) = a.a = 233
+
 
 let valD = MyOtherObj()
 
@@ -39,7 +41,7 @@ impl:
 
   proc doOtherThing(a: MyObj): int = a.y * a.z * a.w
 
-  proc quack(a: MyObj)  = echo a
+  proc quack(a: var MyObj) = discard
 
 
   proc getBounds(a: var MyRef, b: int): (int, int, int, int) =
@@ -49,46 +51,38 @@ impl:
 
   proc doOtherThing(a: MyRef): int = 300
 
-  proc quack(a: MyRef) = 
-    echo a.repr
-    a.a = 10
+  proc quack(a: var MyRef) = a.a = 10
 
 checkImpls()
 
-proc test: MyRef =
-  var
-    valA = MyObj(x: 0, y: 10, z: 30, w: 100)
-    valB = MyOtherObj()
-    valC = MyRef()
-    myData = [valA.toImpl BoundObject, valB, valC, valD]
-    myQuackyData = [
-      valA.toImpl(BoundObject, DuckObject),
-      valB,
-      valC,
-      valD]
+var
+  valA = MyObj(x: 0, y: 10, z: 30, w: 100)
+  valB = MyOtherObj()
+  valC = MyRef()
+  
+  
+var myData = [valA.toImpl BoundObject, valB, valC, valD]
+
+for x in myData.mitems:
+  if x of MyObj:
+    var myObj = x as MyObj
+    assert myObj.x == 0
+    assert x.getBounds(3) == (valA.x, valA.y, valA.z, valA.w * 3)
+    myObj = x as MyObj
+    assert x.doOtherThing() == myObj.y * myObj.z * myObj.w
+  elif x of MyRef:
+    assert x.getBounds(3) == (3, 2, 1, 30)
+  elif x of MyOtherObj:
+    assert x.getBounds(3) == (10, 20, 30, 120)
+    assert x.doOtherThing() == 300
+
+assert (myData[0] as MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
 
 
-  echo "Bound Data"
-  for x in myData.mitems:
-    if x of MyObj:
-      var myObj = x as MyObj
-      assert myObj.x == 0
-    echo x.getBounds(3)
-    echo x.doOtherThing()
+var myQuackyData = [valA.toImpl(BoundObject, DuckObject), valB, valC, valD]
 
-  assert (myData[0] as MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
-  echo "\nQuacky Data"
-  for x in myQuackyData:
-    echo x.doOtherThing()
-    x.quack()
-  echo valC.repr
-  echo "\n Dumb Data"
-  var a = valA.toBoundObject
-  echo a.getBounds(10)
-
-  echo myData[0] as MyObj
-  result = myData[2] as MyRef # This may leak?
-  echo result.a
-
-let a = test()
-echo a[]
+for x in myQuackyData.mitems:
+  discard x.doOtherThing()
+  x.quack()
+assert myData[2] as MyRef == valC
+assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 233)
