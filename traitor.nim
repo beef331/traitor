@@ -2,10 +2,17 @@ import std/[macros, macrocache, strformat, genasts, sugar, algorithm, enumerate,
 
 type 
   ImplConvDefect = object of Defect
-  ImplObj[PCount: static int; Conc: static seq[int]] = object
+  DynamicImplObj[PCount: static int; Conc: static seq[int]] = object
     vTable: array[PCount, pointer]
     idBacker: int # To allow typechecking at runtime
     obj: ptr UncheckedArray[byte]
+  FixedImplObj[PCount, BuffSize: static int; Conc: static seq[int]] = object
+    vTable: array[PCount, pointer]
+    idBacker: int # To allow typechecking at runtime
+    obj: array[BuffSize, byte]
+
+  ImplObj = DynamicImplObj or FixedImplObj
+
   ConceptImpl = enum
     getTypeName, getTypeImpl
 
@@ -13,6 +20,17 @@ proc id*(impl: ImplObj): int = impl.idBacker
 
 
 var implTable {.compileTime.} = CacheSeq"ConceptImplTable"
+const traitorBufferSize {.intdefine.}: int = -1
+var currentBuffSize {.compileTime.} = traitorBufferSize
+
+template withImplementBufferSize*(tempSize: int, body: untyped) =
+  let curr = static: currentBuffSize
+  static:
+    currentBuffSize = tempSize
+  body
+  static:
+    currentBuffSize = curr
+
 
 proc toId(typ: NimNode): NimNode =
   ## Converts symbols to their ID, could use a table,
@@ -261,8 +279,11 @@ macro implObj*(concepts: varargs[typed]): untyped =
     ids = collect:(for x in toId(concepts): int x.intval)
     procs = getProcs(ids)
 
-  result = genAst(ids, pcount = procs.len):
-    ImplObj[pcount, ids]
+  result = genAst(ids, pcount = procs.len, currentBuffSize):
+    when currentBuffSize > 0:
+      FixedImplObj[pcount, currentBuffSize, ids]
+    else:
+      DynamicImplObj[pcount, ids]
 
 
 macro impl*(pDef: typed): untyped =
@@ -307,14 +328,27 @@ macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
     # Procs are pointers but are non homogenous so cast them to be homgoenous
     rawProcs.add nnkCast.newTree(ident"pointer", x)
 
-  result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId):
-    var
-      data = cast[ptr UncheckedArray[byte]](createU(typeOf(val)))
-      obj = val # So we support `MyObj(a: 100).toImpl(SomeConcept)`
-    when val is ref:
-      GC_Ref(val) # So ref types behave properly
-    copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
-    ImplObj[pCount, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
+  let neededSize = val.getType.getSize
+  if neededSize > currentBuffSize and currentBuffSize > 0:
+    error(fmt"Attempting to use a fixed array of {currentBuffSize}, but need atleast {neededSize} for type {val.getTypeInst.repr}", val)
+
+  result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId, currentBuffSize):
+    when currentBuffSize > 0:
+      var
+        data {.noInit.}: array[currentBuffSize, byte]
+        obj = val # So we support `MyObj(a: 100).toImpl(SomeConcept)`
+      when val is ref:
+        GC_Ref(val) # So ref types behave properly
+      copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
+      FixedImplObj[pCount, currentBuffSize, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
+    else:
+      var
+        data  = cast[ptr UncheckedArray[byte]](createU(byte, sizeof(val)))
+        obj = val # So we support `MyObj(a: 100).toImpl(SomeConcept)`
+      when val is ref:
+        GC_Ref(val) # So ref types behave properly
+      copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
+      DynamicImplObj[pCount, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
 
 macro ofImpl(val: ImplObj, b: typedesc): untyped =
   ## Does the internal logic for the `of` operator, checking if the id's match the desired type
@@ -365,9 +399,15 @@ macro unrefObj(val: ImplObj): untyped =
     result.add:
       nnkOfBranch.newTree(newLit id):
         genAst(val, typ = name):
-          when typ is ref:
-            GC_UnRef(cast[ptr typ](val.obj)[]) # Try not to leak GC'd memory
-          `=destroy`(cast[ptr typ](val.obj)[]) # Custom destructors should work
+          when val is FixedImplObj:
+            when typ is ref:
+              GC_UnRef(cast[ptr typ](val.obj.addr)[]) # Try not to leak GC'd memory
+            `=destroy`(cast[ptr typ](val.obj.addr)[]) # Custom destructors should work
+          else:
+            when typ is ref:
+              GC_UnRef(cast[ptr typ](val.obj)[]) # Try not to leak GC'd memory
+            `=destroy`(cast[ptr typ](val.obj)[]) # Custom destructors should work
+
   result.add nnkElse.newTree(nnkDiscardstmt.newTree(newEmptyNode()))
 
 macro ensureType(val: ImplObj, b: typedesc): untyped =
@@ -401,9 +441,12 @@ macro isPtr(val: ImplObj): untyped =
           typ is (ref or ptr)
   result.add nnkElse.newTree(newLit true)
 
-proc `=destroy`[Count: static int; Conc: static seq[int]](obj: var ImplObj[Count, Conc]) =
+proc `=destroy`[Count: static int; Conc: static seq[int]](obj: var DynamicImplObj[Count, Conc]) =
   unrefObj(obj)
   dealloc(obj.obj)
+
+proc `=destroy`[Count, Size: static int; Conc: static seq[int]](obj: var FixedImplObj[Count, Size, Conc]) =
+  unrefObj(obj)
 
 {.experimental: "dotOperators".}
 
@@ -457,14 +500,20 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
     # Handle first parameter our object
     if isPtrObj:
       genAst(val):
-        val.obj
+        when val is FixedImplObj:
+          cast[pointer](val.obj.addr)
+        else:
+          val.obj
     else:
       genAst(val):
-        if isPtr(val):
-          let pntr = cast[ptr UncheckedArray[int]](val.obj)[0]
-          cast[pointer](pntr)
+        when val is FixedImplObj:
+          cast[pointer](val.obj.addr)
         else:
-          cast[pointer](val.obj)
+          if isPtr(val):
+            let pntr = cast[ptr UncheckedArray[int]](val.obj)[0]
+            cast[pointer](pntr)
+          else:
+            cast[pointer](val.obj)
 
   for arg in args: # Add remaining args
     result[^1].add arg
@@ -477,12 +526,20 @@ template `of`*(implObj: ImplObj, T: typedesc): bool =
 template `as`*(implObj: ImplObj, T: typedesc[not ImplObj]): untyped =
   ## Converts `implObj` to `T` raising a defect if it's not.
   ensureType(implObj, T)
-  when T is ref:
-    let val = cast[ptr T](implObj.obj)[]
-    Gc_Ref(val) # Needed since we're instantiating from a cast
-    val
+  when implObj is FixedImplObj:
+    when T is ref:
+      let val = cast[ptr T](implObj.obj.addr)[]
+      Gc_Ref(val) # Needed since we're instantiating from a cast
+      val
+    else:
+      cast[ptr T](implObj.obj.addr)[]
   else:
-    cast[ptr T](implObj.obj)[]
+    when T is ref:
+      let val = cast[ptr T](implObj.obj)[]
+      Gc_Ref(val) # Needed since we're instantiating from a cast
+      val
+    else:
+      cast[ptr T](implObj.obj)[]
 
 template to*(implObj: ImplObj, T: typedesc[not ImplObj]): untyped =
   ## Alias of `as` used for easier chaining on conversion(accessing fields and the like.)
