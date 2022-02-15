@@ -23,7 +23,7 @@ var implTable {.compileTime.} = CacheSeq"ConceptImplTable"
 const traitorBufferSize {.intdefine.}: int = -1
 var currentBuffSize {.compileTime.} = traitorBufferSize
 
-template withImplementBufferSize*(tempSize: int, body: untyped) =
+template withTraitorBufferSize*(tempSize: int, body: untyped) =
   let curr = static: currentBuffSize
   static:
     currentBuffSize = tempSize
