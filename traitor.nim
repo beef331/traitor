@@ -188,7 +188,7 @@ proc replaceSelf(n, replaceWith: NimNode) =
     else:
       x.replaceSelf(replaceWith)
 
-macro implements*(theType: typedesc, concepts: varargs[typed]) =
+proc implement(concepts: NimNode) =
   ## Adds the implementation of concept `b` to the `implTable`
   for typ in concepts:
     let
@@ -197,28 +197,44 @@ macro implements*(theType: typedesc, concepts: varargs[typed]) =
     var newProcs = newSeqOfCap[NimNode](procs.len)
     for x in procs:
       let newProc = x.copyNimTree()
-      newProc.replaceSelf(theType) # Replace "a: Self"
       newProcs.add nnkPar.newTree(newEmptyNode(), newProc) # each procedure is a `(sym, proc)`
 
-    for concpt in implTable:
-      if concpt[0][0] == typ:
-        concpt.add newStmtList(theType)
-        concpt[^1].add newProcs
-        break
-    implTable.add newStmtList(newStmtList(typ, procs), newStmtList(@[theType] & newProcs)) # stmtlist(conceptImpl(name, procs), par(typeImpl, procs)) is how the seq is laid out
+    for impl in implTable:
+      if typ == impl:
+        return # Do not need to add again if it's already added
+
+    implTable.add newStmtList(newStmtList(typ, procs)) # stmtlist(conceptImpl(name, procs), par(typeImpl, procs)) is how the seq is laid out
 
 
 proc markIfImpls(pDef, concpt: NimNode): (bool, NimNode) =
   ## Adds `pdef.name` to the `implTable` if it matches the desired impl
   ## returns list of newly fulfilled concepts, for converters to be made
+
+  let theType =
+    if pdef.params[1][^2].kind == nnkVarTy:
+      pdef.params[1][^2][0]
+    else:
+      pdef.params[1][^2]
+
+  var found = false
+  for iProc in concpt[1..^1]:
+    if (found = iProc[0] == theType; found):
+      break
+  if not found:
+    concpt.add newStmtList(theType)
+    for x in concpt[0][1]:
+      let newPrc = x.copyNimTree
+      newPrc.replaceSelf(theType)
+      concpt[^1].add nnkPar.newTree(newEmptyNode(), newPrc)
+
   for iProc in concpt[0][^1]:
     for typImpl in concpt[1..^1]:
-      if iProc.sameProc pDef: # If we hit a same proc add it
+      if iProc.sameProc(pDef) and typImpl[0] == theType: # If we hit a same proc add it
         var
           fullyImplemented = 0 # Count how many procedures are implemented
           implementedNewProc = false # If this ticked a implementation over
         for impl in typImpl:
-          if impl.kind == nnkPar: # Due to storing `(sym, proc)` inside the impl table
+          if impl.kind == nnkPar:
             if impl[1].sameProc(pDef) and impl[0].kind == nnkEmpty:
               impl[0] = pDef[0] # Bind the name to the pdef we're adding, so we can use it later
               implementedNewProc = true
@@ -285,8 +301,23 @@ macro implObj*(concepts: varargs[typed]): untyped =
     else:
       DynamicImplObj[pcount, ids]
 
+proc checkImpls(concepts: NimNode) =
+  var missingMessage = ""
+  for impl in implTable:
+    proc isInTable: bool =
+      for x in concepts:
+        if impl[0][0] == x:
+          return true
+    if isInTable():
+      for tImpl in impl[1..^1]:
+        for pImpl in timpl[1..^1]:
+          if pImpl[0].kind == nnkEmpty:
+            missingMessage.add &"'{pImpl[1].repr}' missing for '{tImpl[0].repr}' to match '{impl[0][0].repr}'\n"
+  if missingMessage.len > 0:
+    error(&"Missing implementations for traits:\n{missingMessage}")
 
-macro impl*(pDef: typed): untyped =
+
+macro implTraits*(concepts: varargs[typed], pDef: typed): untyped =
   ## Adds `pdef` to `implTable` for all concepts that require it
   ## emits a converter if fully matched.
   ## Works on blocks of procedures and also as a pragma.
@@ -296,23 +327,28 @@ macro impl*(pDef: typed): untyped =
     else:
       pDef
   result = newStmtList(pDef)
+  concepts.implement()
+  var
+    implsConcepts = 0
+    types: seq[NimNode]
+
   for pDef in pdefs:
     if pdef.kind != nnkProcDef:
       error("Cannot implement a non procedure.", pdef)
     var implementsOnce = false
-    for concpt in implTable:
-      let (fullyImpls, typ) = markIfImpls(pDef, concpt)
+    for id in concepts.toId:
+      let (fullyImpls, typ) = markIfImpls(pDef, implTable[int id.intval])
+      if typ notin types:
+          types.add typ
+      if fullyImpls:
+        inc implsConcepts
       if pDef.kind != nnkEmpty:
         implementsOnce = true
-      if fullyImpls:
-        let
-          conceptName = concpt[0][0]
-          name = ident "to" & $conceptName
-        result.add:
-          genASt(name, typ, conceptName):
-            converter name*(obj: typ): implObj(conceptName) = obj.toImpl(conceptName)
     if not implementsOnce:
       error("Attempting to implement unknown proc.", pDef)
+
+  if implsConcepts != concepts.len * types.len:
+    checkImpls(concepts)
 
 macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
   ## Converts an object to the desired interface
@@ -382,8 +418,8 @@ macro emitConverters*(concepts: varargs[typed]): untyped =
       for i, typ in concpt:
         typCall.add typ
         toImplCall.add typ
-
     else: discard
+
     result.add:
       genAst(typCall, toImplCall, valName, name = genSym(nskConverter, "toImplObj")):
         converter name[T](valName: T): typCall = toImplCall
@@ -517,7 +553,6 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
 
   for arg in args: # Add remaining args
     result[^1].add arg
-
 
 template `of`*(implObj: ImplObj, T: typedesc): bool =
   ## Returns true if the `implObj` is really a `T`

@@ -15,27 +15,13 @@ type
   MyRef = ref object
     a: int
 
-MyOtherObj.implements BoundObject, DuckObject
-MyObj.implements BoundObject, DuckObject
-MyRef.implements BoundObject, DuckObject
 
-emitConverters(
-  BoundObject,
-  DuckObject,
-  [BoundObject, DuckObject]
-  )
-
-proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) {.impl.} = (10, 20, 30, 40 * b)
-impl:
+implTraits(DuckObject, BoundObject):
+  proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) = (10, 20, 30, 40 * b)
   proc doOtherThing(a: MyOtherObj): int = 300
   proc quack(a: var MyOtherObj) = a.a = 233
 
-
-let valD = MyOtherObj()
-
-
-impl:
-  proc getBounds(a: var MyObj, b: int): (int, int, int, int) = 
+  proc getBounds(a: var MyObj, b: int): (int, int, int, int) =
     result = (a.x, a.y, a.z, a.w * b)
     a.x = 100
     a.y = 300
@@ -54,30 +40,36 @@ impl:
 
   proc quack(a: var MyRef) = a.a = 10
 
-checkImpls()
+
+emitConverters(
+  DuckObject,
+  BoundObject,
+  [DuckObject, BoundObject]
+)
 
 var
   valA = MyObj(x: 0, y: 10, z: 30, w: 100)
   valB = MyOtherObj()
   valC = MyRef()
+  valD = MyOtherObj()
 
 test "Basic data logic":
   var myData = [valA.toImpl BoundObject, valB, valC, valD]
-  
+  check (myData[0] as MyObj) == MyObj(x: 0, y: 10, z: 30, w: 100)
   for x in myData.mitems:
     if x of MyObj:
-      assert x.to(MyObj).x == 0
-      assert x.getBounds(3) == (valA.x, valA.y, valA.z, valA.w * 3)
+      check x.to(MyObj).x == 0
+      check x.getBounds(3) == (0, 10, 30, 300)
       let myObj = x as MyObj
-      assert x.doOtherThing() == myObj.y * myObj.z * myObj.w
+      check x.doOtherThing() == myObj.y * myObj.z * myObj.w
     elif x of MyRef:
-      assert x.getBounds(3) == (3, 2, 1, 30)
+      check x.getBounds(3) == (3, 2, 1, 30)
     elif x of MyOtherObj:
-      assert x.getBounds(3) == (10, 20, 30, 120)
-      assert x.doOtherThing() == 300
+      check x.getBounds(3) == (10, 20, 30, 120)
+      check x.doOtherThing() == 300
   
-  assert (myData[0] as MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
-  assert myData[2] as MyRef == valC # Check the ref is the same
+  check (myData[0] as MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
+  check myData[2] as MyRef == valC # Check the ref is the same
 
 test "Duck testing":
   var myQuackyData = [valA.toImpl(BoundObject, DuckObject), valB, valC, valD]
@@ -86,6 +78,6 @@ test "Duck testing":
     discard x.doOtherThing()
     x.quack()
 
-  assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 233)
+  check myQuackyData[1] as MyOtherObj == MyOtherObj(a: 233)
   myQuackyData[1].to(MyOtherObj).a = 100
-  assert myQuackyData[1] as MyOtherObj == MyOtherObj(a: 100) # Tests if field access works
+  check myQuackyData[1] as MyOtherObj == MyOtherObj(a: 100) # Tests if field access works

@@ -24,13 +24,10 @@ type
   Radio {.byref.} = object # Objects smaller than 24 bytes need `{.byref.}`
     x, y, r: int
 
-Button.implements Clickable
-Radio.implements Clickable
+implTraits Clickable:
+  proc over(btn: Button, x, y: int): bool =
+    btn.x < x and (btn.x + btn.w) > x and btn.y < y and (btn.y + btn.h) > y
 
-proc over(btn: Button, x, y: int): bool {.impl.} = # `{.impl.}` subscribes it to the impl table
-  btn.x < x and (btn.x + btn.w) > x and btn.y < y and (btn.y + btn.h) > y
-
-impl: # Can be used as a block aswell
   proc onClick(btn: Button) =
     echo "Clicked a button"
 
@@ -38,6 +35,8 @@ impl: # Can be used as a block aswell
     radio.r >= (abs(radio.x - x) + abs(radio.y - y))
   
   proc onClick(radio: Radio) = echo "Clicked a radio"
+
+emitConverters(Clickable)
 
 var
   elements = [
@@ -59,8 +58,6 @@ for i, x in elements:
 assert (elements[2] as Radio) == Radio(x: 30, y: 30, r: 10) # We can use `as` to convert to a type
 elements[2].to(Radio).x = 0 # We can also use `to` for chaining field access
 assert elements[2].to(Radio).x == 0
-
-checkImpls() # Ensures all types that implement concepts have procedures assigned for those concepts.
 ```
 
 By default traitor uses dynamically allocated buffers, if one wants to do fixed size buffers one can do `-d:traitorBufferSize=YourSize` and it'll use `array[YourSize, byte]` as a backer to hold the data.
