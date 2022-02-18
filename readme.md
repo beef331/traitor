@@ -41,7 +41,7 @@ emitConverters(Clickable)
 var
   elements = [
     Button(w: 10, h: 20).toImpl Clickable,
-    Button(x: 30, y: 30, w: 10, h: 10), # Fully implemented interfaces implement converters
+    Button(x: 30, y: 30, w: 10, h: 10), # Our converters enable this magic!
     Radio(x: 30, y: 30, r: 10)
   ]
 
