@@ -23,7 +23,7 @@ implTraits Clickable:
   
   proc onClick(radio: Radio) = echo "Clicked a radio"
 
-emitConverters(Clickable)
+setupTraits Clickable
 
 var
   elements = [

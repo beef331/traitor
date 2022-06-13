@@ -41,7 +41,7 @@ implTraits(DuckObject, BoundObject):
   proc quack(a: var MyRef) = a.a = 10
 
 
-emitConverters(
+setupTraits(
   DuckObject,
   BoundObject,
   [DuckObject, BoundObject]
@@ -53,8 +53,17 @@ var
   valC = MyRef()
   valD = MyOtherObj()
 
+type MyLateType {.byref.} = object
+  a, b, c: int
+
+
+implTraits(DuckObject, BoundObject):
+  proc getBounds(a: var MyLateType, b: int): (int, int, int, int) = discard
+  proc doOtherThing(a: MyLateType): int = discard
+  proc quack(a: var MyLateType) = a.a = 300
+
 test "Basic data logic":
-  var myData = [valA.toImpl BoundObject, valB, valC, valD]
+  var myData = [valA.toImpl BoundObject, valB, valC, valD, MyLateType(a: 300)]
   check (myData[0] as MyObj) == MyObj(x: 0, y: 10, z: 30, w: 100)
   for x in myData.mitems:
     if x of MyObj:
@@ -72,7 +81,7 @@ test "Basic data logic":
   check myData[2] as MyRef == valC # Check the ref is the same
 
 test "Duck testing":
-  var myQuackyData = [valA.toImpl(BoundObject, DuckObject), valB, valC, valD]
+  var myQuackyData = [valA.toImpl(BoundObject, DuckObject), valB, valC, valD, MyLateType(a: 50)]
 
   for x in myQuackyData.mitems:
     discard x.doOtherThing()
@@ -81,3 +90,4 @@ test "Duck testing":
   check myQuackyData[1] as MyOtherObj == MyOtherObj(a: 233)
   myQuackyData[1].to(MyOtherObj).a = 100
   check myQuackyData[1] as MyOtherObj == MyOtherObj(a: 100) # Tests if field access works
+  check myQuackyData[^1].to(MyLateType).a == 300

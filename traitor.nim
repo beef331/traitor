@@ -3,11 +3,11 @@ import std/[macros, macrocache, strformat, genasts, sugar, algorithm, enumerate,
 type 
   ImplConvDefect = object of Defect
   DynamicImplObj[PCount: static int; Conc: static seq[int]] = object
-    vTable: array[PCount, pointer]
+    vTable: ptr seq[pointer]
     idBacker: int # To allow typechecking at runtime
     obj: ptr UncheckedArray[byte]
   FixedImplObj[PCount, BuffSize: static int; Conc: static seq[int]] = object
-    vTable: array[PCount, pointer]
+    vTable: ptr seq[pointer]
     idBacker: int # To allow typechecking at runtime
     obj: array[BuffSize, byte]
 
@@ -19,7 +19,9 @@ type
 proc id*(impl: ImplObj): int = impl.idBacker
 
 
-var implTable {.compileTime.} = CacheSeq"ConceptImplTable"
+var
+  implTable {.compileTime.} = CacheSeq"ConceptImplTable"
+  vtables {.compileTime.} = CacheSeq"ConceptVTable"
 const traitorBufferSize {.intdefine.}: int = -1
 var currentBuffSize {.compileTime.} = traitorBufferSize
 
@@ -354,21 +356,45 @@ macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
   ## Converts an object to the desired interface
   let
     conceptIds = constraint.toId()
-    procs = getProcs(val, conceptIds)
-    rawProcs = nnkBracket.newTree()
     typeId = val.getTypeId(conceptIds)
   if typeId < 0:
     error(fmt"Cannot to convert '{val.getType.repr}' to {constraint.repr}.", val)
-
-  for x in procs:
-    # Procs are pointers but are non homogenous so cast them to be homgoenous
-    rawProcs.add nnkCast.newTree(ident"pointer", x)
 
   let neededSize = val.getType.getSize
   if neededSize > currentBuffSize and currentBuffSize > 0:
     error(fmt"Attempting to use a fixed array of {currentBuffSize}, but need atleast {neededSize} for type {val.getTypeInst.repr}", val)
 
-  result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId, currentBuffSize):
+  var
+    vTableName: NimNode
+    foundTable = false
+    alreadyAdded = false
+
+
+  for x in vtables:
+    if x[1] == conceptIds:
+      while x.len <= typeId + 2:
+        x.add newEmptyNode()
+      alreadyAdded = x[2 + typeId] == newLit(true)
+      x[2 + typeId] = newLit(true)
+      vTableName = x[0]
+      foundTable = true
+      break
+
+  var rawProcs = nnkBracket.newTree()
+  let procs = getProcs(val, conceptIds)
+
+  if not alreadyAdded:
+    for x in procs:
+      # Procs are pointers but are non homogenous so cast them to be homgoenous
+      rawProcs.add nnkCast.newTree(ident"pointer", x)
+
+  if not foundTable:
+    error(fmt"Vtable not implemented, forgot to call 'setupTraits({constraint.repr})'", val)
+
+  result = genAst(rawProcs, pCount = procs.len, val, conceptIds, typeId, currentBuffSize, alreadyAdded = newLit(alreadyAdded), vTableName):
+    when not alreadyAdded:
+      vTableName.add rawProcs
+
     when currentBuffSize > 0:
       var
         data {.noInit.}: array[currentBuffSize, byte]
@@ -376,7 +402,7 @@ macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
       when val is ref:
         GC_Ref(val) # So ref types behave properly
       copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
-      FixedImplObj[pCount, currentBuffSize, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
+      FixedImplObj[pCount, currentBuffSize, @conceptIds](vtable: vTableName.addr, idBacker: typeId, obj: data)
     else:
       var
         data  = cast[ptr UncheckedArray[byte]](createU(byte, sizeof(val)))
@@ -384,7 +410,7 @@ macro toImpl*(val: typed, constraint: varargs[typed]): untyped =
       when val is ref:
         GC_Ref(val) # So ref types behave properly
       copyMem(data[0].addr, obj.unsafeAddr, sizeof(val))
-      DynamicImplObj[pCount, @conceptIds](vtable: rawProcs, idBacker: typeId, obj: data)
+      DynamicImplObj[pCount, @conceptIds](vtable: vTableName.addr, idBacker: typeId, obj: data)
 
 macro ofImpl(val: ImplObj, b: typedesc): untyped =
   ## Does the internal logic for the `of` operator, checking if the id's match the desired type
@@ -401,14 +427,49 @@ macro ofImpl(val: ImplObj, b: typedesc): untyped =
   result = genast(val, ind):
     val.id == ind
 
-macro emitConverters*(concepts: varargs[typed]): untyped =
-  ## Generates converters for each type passed
+macro setupTraits*(concepts: varargs[typed]): untyped =
+  ## Generates converters for each type passed, and emits the vtable
   result = newStmtList()
   for concpt in concepts:
     let 
       typCall = nnkCall.newTree(bindsym"implObj")
       valName = ident"val"
       toImplCall = newCall(bindSym"toImpl", valName)
+      conceptIds = concpt.toId
+
+    var
+      subscribeProcs = newStmtList()
+      vTableName: NimNode
+      alreadyDeclared = false
+
+    for vtable in vtables:
+      if vtable[1] == conceptIds:
+        vTableName = vTable[0]
+        alreadyDeclared = true
+        for (id, impls) in conceptImpls(conceptIds): # Iterate all presently known types that implement this
+          if id > vtable.len or not vtable[id + 2].boolVal: # Only need to add if we're below the length or not added
+            while vtable.len <= id + 2: # depending when this is called we may have added other values with lower IDs than this one
+              vTable.add newLit(false)
+            let alreadyAdded = vTable[id + 2].boolVal
+            if not alreadyAdded:
+              vTable[id + 2] = newLit(true)
+
+              var procs = nnkBracket.newTree()
+              for x in getProcs(impls, conceptIds): # iterate procs casting them
+                procs.add nnkCast.newTree(ident"pointer", x)
+              subscribeProcs.add newCall("add", vTableName, procs)
+        break
+
+    if vTableName.kind == nnkNilLit:
+      vTableName = genSym(nskVar, "vtablePointer")
+      var toAddToVtable = newStmtList(vTableName, conceptIds)
+      for (id, impls) in conceptImpls(conceptIds): # Iterate all presently known types that implement this
+        var procs = nnkBracket.newTree()
+        for x in getProcs(impls, conceptIds): # iterate procs casting them
+          procs.add nnkCast.newTree(ident"pointer", x) # Cast the procs to pointer
+        subscribeProcs.add newCall("add", vTableName, procs) # Add the procs to the vtable
+        toAddToVtable.add newLit(true)
+      vtables.add(toAddToVtable)
 
     case concpt.kind
     of nnkSym:
@@ -421,7 +482,10 @@ macro emitConverters*(concepts: varargs[typed]): untyped =
     else: discard
 
     result.add:
-      genAst(typCall, toImplCall, valName, name = genSym(nskConverter, "toImplObj")):
+      genAst(typCall, toImplCall, valName, subscribeProcs, vTableName, alreadyDeclared = newLit(alreadyDeclared), name = genSym(nskConverter, "toImplObj")):
+        when not alreadyDeclared:
+          var vTableName: seq[pointer]
+        subscribeProcs
         converter name[T](valName: T): typCall = toImplCall
 
 macro unrefObj(val: ImplObj): untyped =
@@ -528,7 +592,7 @@ macro `.()`*(val: ImplObj, field: untyped, args: varargs[untyped]): untyped =
 
   result = newStmtList():
     genast(ind, val, pTy, prc):
-      let prc = cast[pTy](val.vtable[ind]) # cast proc to our original type but with `pointer` as first arg
+      let prc = cast[pTy](val.vtable[][ind + val.idBacker * val.PCount]) # cast proc to our original type but with `pointer` as first arg
 
   result.add newCall(prc)
 
