@@ -2,13 +2,23 @@ import std/[macros, macrocache, strformat, genasts, sugar, algorithm, enumerate,
 
 type 
   TraitorConvDefect = object of Defect
-
-  TraitorObj[T: static openarray[int]] = object
+  TraitorObj[T: static array] = object
+    traceProc: proc(data, env: pointer){.nimcall.}
+    destructorProc: proc(data: pointer){.nimcall.}
     vTable: ptr seq[pointer]
     idBacker: int # To allow typechecking at runtime
     obj: pointer
 
   TraitEntry = distinct NimNode
+
+
+proc `=destroy`[T](traitorObj: var TraitorObj[T]) =
+  if traitorObj.obj != nil:
+    traitorObj.destructorProc(traitorObj.obj)
+
+proc `=trace`[T](traitorObj: var TraitorObj[T], env: pointer) =
+  if traitorObj.obj != nil:
+    traitorObj.traceProc(traitorObj.obj, env)
 
 proc id(traitEntry: TraitEntry): NimNode = NimNode(traitEntry)[0]
 proc names(traitEntry: TraitEntry): NimNode = NimNode(traitEntry)[1]
@@ -198,7 +208,7 @@ macro toTraitor(val: typed, traits: varargs[typed]): untyped =
           theVtable[procCount * typId + index] = (ptyp)(name)
 
   result.add:
-    genast(val, id, typId, theVtable):
+    genast(val, id, typId, theVtable, typ):
         let data =
           when val is ref:
             GcRef(typ)
@@ -210,7 +220,18 @@ macro toTraitor(val: typed, traits: varargs[typed]): untyped =
             thePtr[] = val
             thePtr
 
-        TraitorObj[id](idBacker: typId, obj: data, vtable: theVtable.addr)
+        const
+          theDestructor = proc(data: pointer) {.nimcall.} =
+            `=destroy`(cast[ptr typ](data)[])
+          theTracer = proc(data, env: pointer) {.nimcall.} =
+            `=trace`(cast[ptr typ](data)[], env)
+        TraitorObj[id](
+          idBacker: typId,
+          obj: data,
+          vtable: theVtable.addr,
+          destructorProc: theDestructor,
+          traceProc: theTracer
+        )
 
 
 {.experimental: "dotOperators".}
@@ -243,12 +264,12 @@ macro getName*(traitorObj: TraitorObj): untyped =
   result.add nnkElse.newTree(newLit"Unknown Type")
 
 
-proc `as`*(traitorObj: TraitorObj, desc: typedesc): desc =
-  if traitorObj.isType(result):
-    result = cast[ptr desc](traitorObj.obj)[]
-  else:
+template `as`*(traitorObj: TraitorObj, desc: typedesc): auto =
+  const res {.gensym.} = default(desc)
+  if not traitorObj.isType(res):
     raise (ref TraitorConvDefect)(msg: "Cannot convert object from type")
 
+  cast[ptr desc](traitorObj.obj)[]
 
 proc isOf*(traitorObj: TraitorObj, desc: typedesc): bool =
   var a: desc
@@ -269,6 +290,10 @@ type
     a: byte
   MyRef = ref object
     a: int
+
+proc `=destroy`(myObj: var MyObj) =
+  echo myObj, " destroyed."
+
 
 proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) = (10, 20, 30, 40 * b)
 proc doOtherThing(a: MyOtherObj): int = 300
@@ -296,21 +321,22 @@ proc quack(a: var MyRef) = a.a = 10
 
 converter toQuackers[T: DuckObject](ducker: T): traitorObj(DuckObject) = ducker.toTraitor(DuckObject)
 
+proc main() =
+  var a: traitorObj(BoundObject, DuckObject)
+  var b = MyObj(x: 100, y: 200)
 
-var a: traitorObj(BoundObject, DuckObject)
-var b = MyObj(x: 100, y: 200)
-
-let c = [b.toQuackers, MyOtherObj(a: 0)]
-for x in c:
-  x.quack()
-  if x.isOf MyObj:
-    echo x as MyObj
-  elif x.isOf MyOtherObj:
-    echo x as MyOtherObj
-  echo x.getName()
-
-
-echo c[0] as MyObj
-echo c[1] as MyOtherObj
+  let c = [b.toQuackers, MyOtherObj(a: 0)]
+  for x in c:
+    x.quack()
+    if x.isOf MyObj:
+      echo x as MyObj
+    elif x.isOf MyOtherObj:
+      echo x as MyOtherObj
+    echo x.getName()
 
 
+  echo c[0] as MyObj
+  echo c[1] as MyOtherObj
+
+
+main()
