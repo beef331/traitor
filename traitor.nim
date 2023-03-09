@@ -11,10 +11,13 @@ type
 
   TraitEntry = distinct NimNode
 
+type Traitor[T: static array] = typeof(new TraitorObj[T])
+
 
 proc `=destroy`[T](traitorObj: var TraitorObj[T]) =
   if traitorObj.obj != nil:
     traitorObj.destructorProc(traitorObj.obj)
+    dealloc(traitorObj.obj)
 
 proc `=trace`[T](traitorObj: var TraitorObj[T], env: pointer) =
   if traitorObj.obj != nil:
@@ -146,16 +149,16 @@ proc getTraitEntry(conceptId: NimNode,  concepts = NimNode(nil)): (TraitEntry, b
 
   traitTable.add NimNode result[0]
 
-macro isType(traitorObj: TraitorObj, res: typed): untyped =
+macro isType(traitor: Traitor, res: typed): untyped =
   let
-    ids = traitorObj.getTypeInst()
+    ids = traitor.getTypeInst()
     (traitEntry, _) = getTraitEntry(ids)
     theId = traitEntry.typeId(res.getTypeInst(), errorIfNotFound = true)
 
-  result = genAst(traitorObj, theId):
-    traitorObj.idBacker == theId
+  result = genAst(traitor, theId):
+    traitor.idBacker == theId
 
-macro traitorObj(descs: varargs[typed]): untyped =
+macro traitorImpl(descs: varargs[typed]): untyped =
   if descs.len == 0:
     error("Did not provide any types to `implObj`.")
 
@@ -163,7 +166,7 @@ macro traitorObj(descs: varargs[typed]): untyped =
   for desc in descs:
     result.add newLit getOrAddId(desc)
 
-  result = nnkBracketExpr.newTree(bindSym"TraitorObj", result)
+  result = nnkBracketExpr.newTree(bindSym"Traitor", result)
 
 macro toTraitor(val: typed, traits: varargs[typed]): untyped =
 
@@ -225,7 +228,7 @@ macro toTraitor(val: typed, traits: varargs[typed]): untyped =
             `=destroy`(cast[ptr typ](data)[])
           theTracer = proc(data, env: pointer) {.nimcall.} =
             `=trace`(cast[ptr typ](data)[], env)
-        TraitorObj[id](
+        Traitor[id](
           idBacker: typId,
           obj: data,
           vtable: theVtable.addr,
@@ -235,9 +238,9 @@ macro toTraitor(val: typed, traits: varargs[typed]): untyped =
 
 
 {.experimental: "dotOperators".}
-macro `.`*(traitorObj: TraitorObj, procName: untyped, args: varargs[typed]): untyped =
+macro `.`*(traitor: Traitor, procName: untyped, args: varargs[typed]): untyped =
   let
-    id = traitorObj.getTypeInst[^1]
+    id = traitor.getTypeInst[^1]
     (traitorEntry, _) = id.getTraitEntry()
     theVtable = traitorEntry.vtable
   for i, x in enumerate traitorEntry.procs:
@@ -247,33 +250,33 @@ macro `.`*(traitorObj: TraitorObj, procName: untyped, args: varargs[typed]): unt
       callTyp.replaceSelf(getType(pointer))
 
       result =
-        genAst(traitorObj, callTyp, theVtable, id = newLit(i), procCount = traitorEntry.procCount()):
-          cast[callTyp](theVtable[id + traitorObj.idBacker * procCount])(traitorObj.obj)
+        genAst(traitor, callTyp, theVtable, id = newLit(i), procCount = traitorEntry.procCount()):
+          cast[callTyp](theVtable[id + traitor.idBacker * procCount])(traitor.obj)
       for arg in args:
         result.add arg
 
-macro getName*(traitorObj: TraitorObj): untyped =
+macro getName*(traitor: Traitor): untyped =
   let
-    ids = traitorObj.getTypeInst()
+    ids = traitor.getTypeInst()
     (traitEntry, _) = getTraitEntry(ids)
   result = nnkCaseStmt.newTree()
-  result.add nnkDotExpr.newTree(traitorObj, ident"idBacker")
+  result.add nnkDotExpr.newTree(traitor, ident"idBacker")
   for i, x in traitEntry.idType:
     result.add nnkOfBranch.newTree(newLit i, newLit repr(x))
 
   result.add nnkElse.newTree(newLit"Unknown Type")
 
 
-template `as`*(traitorObj: TraitorObj, desc: typedesc): auto =
+template `as`*(traitor: Traitor, desc: typedesc): auto =
   const res {.gensym.} = default(desc)
-  if not traitorObj.isType(res):
+  if not traitor.isType(res):
     raise (ref TraitorConvDefect)(msg: "Cannot convert object from type")
 
-  cast[ptr desc](traitorObj.obj)[]
+  cast[ptr desc](traitor.obj)[]
 
-proc isOf*(traitorObj: TraitorObj, desc: typedesc): bool =
+proc isOf*(traitor: Traitor, desc: typedesc): bool =
   var a: desc
-  traitorObj.isType(a)
+  traitor.isType(a)
 
 
 type
@@ -319,10 +322,10 @@ proc doOtherThing(a: MyRef): int = 300
 
 proc quack(a: var MyRef) = a.a = 10
 
-converter toQuackers[T: DuckObject](ducker: T): traitorObj(DuckObject) = ducker.toTraitor(DuckObject)
+converter toQuackers[T: DuckObject](ducker: T): traitorImpl(DuckObject) = ducker.toTraitor(DuckObject)
 
 proc main() =
-  var a: traitorObj(BoundObject, DuckObject)
+  var a: traitorImpl(BoundObject, DuckObject)
   var b = MyObj(x: 100, y: 200)
 
   let c = [b.toQuackers, MyOtherObj(a: 0)]
