@@ -11,7 +11,7 @@ type
 
   TraitEntry = distinct NimNode
 
-type Traitor[T: static array] = typeof(new TraitorObj[T])
+  Traitor[T: static array] = typeof(new TraitorObj[T])
 
 
 proc `=destroy`[T](traitorObj: var TraitorObj[T]) =
