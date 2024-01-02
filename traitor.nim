@@ -1,5 +1,5 @@
 import pkg/micros/introspection
-import std/[macros, genasts]
+import std/[macros, genasts, strutils]
 
 type Atom* = distinct void
 
@@ -11,137 +11,213 @@ proc atomCount(p: typedesc[proc]): int =
 type
   ValidTraitor = concept f
     for field in f.fields:
-      field.paramTypeAt(0) is Atom
-      ##field.returnType isnot Atom
-      atomCount(typeof(field)) == 1
+      when field is (proc):
+        field.paramTypeAt(0) is Atom
+        atomCount(typeof(field)) == 1
+      else:
+        for child in field.fields:
+          child.paramTypeAt(0) is Atom
+          atomCount(typeof(child)) == 1
 
-
-  Traitor[Traits: ValidTraitor] = ref object of RootObj
+  Traitor*[Traits: ValidTraitor] = ref object of RootObj
     id: uint16
 
-  TypedTraitor[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
+  TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
     data: T
 
 proc removeAtom(stmt, typ: NimNode): bool =
   for i, node in stmt:
     case node.kind
     of nnkSym:
-      if node.eqIdent"Atom":
-        stmt[i] = typ
-        return true
+      if node == bindSym"Atom":
+        stmt[i] = typ # No early return other branches might have `Atom`
+        result = true
+      elif node.symKind == nskParam:
+        stmt[i] = ident $node
     else:
       result = result or removeAtom(node, typ)
 
-
-macro emitPointerProc(name, prc, typ: typed): untyped =
-  let procType = prc.getType
-
+proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
+  let procType = origType.getTypeInst[0].copyNimTree
   result = genast():
     proc() {.nimcall.} = discard
 
+  let
+    call = newCall(name.strVal)
+    traitType = nnkBracketExpr.newTree(bindSym"TypedTraitor", instType, traitType)
 
-
-  let call = newCall(name.strVal)
+  if not procType[0].eqIdent"void":
+    result.params[0] = procType[0]
 
   for i, def in procType[1..^1]:
-    if i == 0:
-      if not procType[1].eqIdent"void":
-        result.params[0] = procType[1]
+    let
+      arg = genSym(nskParam, "param" & $i)
+      theTyp = newStmtList(def[^2].copyNimTree)
+
+    if theTyp.removeAtom(traitType):
+      call.add nnkDotExpr.newTree(arg, ident"data")
     else:
-      let
-        arg = genSym(nskParam, "param" & $i)
-        theTyp =
-          if def == bindSym"Atom":
-            nnkBracketExpr.newTree(bindSym"TypedTraitor", typ, prc[0][1])
-          else:
-            def
-
-      if theTyp.removeAtom(typ) or def.eqIdent"Atom":
-        call.add nnkDotExpr.newTree(arg, ident"data")
-      else:
-        call.add arg
-      result.params.add newIdentDefs(arg, theTyp)
-
+      call.add arg
+    result.params.add newIdentDefs(arg, theTyp)
+  let conv = nnkPar.newTree(origType.getTypeInst().copyNimTree)
+  discard conv.removeAtom(instType)
+  call[0] = newCall(conv, ident name.strVal)
   result[^1] = call
+  result = nnkCast.newTree(bindSym"pointer", result)
 
-  #[ Emit:
-    proc(traitor: Traitor[prc[0][1]], ...): prc[^1] =
-      let conv = cast[TypedTraitor[typ, prc[0][1]]](traitor)
-      name(conv.data, ...)
-  ]#
 
-macro callImpl*(trait: Traitor, name: untyped, table: seq[pointer], args: typed): untyped =
+macro emitPointerProc(name, prc, typ: typed): untyped =
   let
-    tupl = trait.getTypeInst[^1].getTypeImpl()
-    tuplArity = tupl.len
-  var
-    procType: NimNode
-    offset = 0
+    procType = prc.getTypeInst()
+    trait = prc[0][1]
+  result = nnkBracket.newTree()
+  case procType.typeKind
+  of ntyTuple:
+    for theProc in procType:
+      result.add genPointerProc(name, theProc, typ, trait)
+  else:
+    result.add genPointerProc(name, prc, typ, trait)
+
+proc getTupleArity(tupl: NimNode): int =
   for field in tupl:
-    if field[0].eqIdent name:
-      procType = field[1]
-      break
+    case field[1].getType.typeKind
+    of ntyProc:
+      inc result
+    of ntyTuple:
+      inc result, field[1].len
+    else:
+      error("Unexpected AST: ", field)
+
+macro getTraitImpls*(tupl: typedesc): untyped =
+  newLit tupl.getTypeImpl[^1].getTypeImpl.getTupleArity()
+
+proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int): NimNode =
+  case typ.typeKind
+  of ntyProc:
+    result = genast(traitType, name = ident $name):
+      proc name*() = discard
+    if typ.params[0] != void.getType():
+      result.params[0] = typ.params[0].copyNimTree
+    let
+      theCall = newCall(newEmptyNode())
+      body = newStmtList()
+    for i, def in typ.params[1..^1]:
+      let paramName = genSym(nskParam, "param" & $i)
+      var theArgTyp = newStmtList(def[^2])
+      discard theArgTyp.removeAtom(traitType)
+
+      if i == 0:
+        body.add newLetStmt(ident"id", newDotExpr(paramName, ident"id"))
+
+      result.params.add newIdentDefs(paramName, theArgTyp)
+      theCall.add paramName
+    let toCastType = typ.copyNimTree()
+    discard toCastType.removeAtom(traitType)
+
+    theCall[0] = genast(offset, arity, table, toCastType):
+      cast[toCastType](table[id * arity + offset])
+
+    result[^1] = newStmtList(body, theCall)
+
     inc offset
 
-  if procType.kind == nnkEmpty:
-    error("No procedure named '" & $name & "' found for '" & trait.getType.repr & "'.", name)
+  of ntyTuple:
+    result = newStmtList()
+    for child in typ:
+      result.add genProc(child, traitType, name, table, offset, arity)
+  else:
+    echo typ.treeRepr
+    error("Unexpected type", typ)
 
-  discard procType.removeAtom(trait.getType)
 
-  let theCast = nnkCast.newTree(procType):
-    genast(trait, table, offset, tuplArity, procType):
-      table[trait.id * tuplArity + offset]
-  result = newCall(theCast, trait)
+macro genProcs(trait: Traitor, table: seq[pointer]): untyped =
+  let
+    tupl = trait.getTypeInst[^1].getTypeImpl()
+    tupleArity = tupl.getTupleArity()
+  result = newStmtList()
+  var offset = 0
+  for field in tupl:
+    result.add genProc(field[1], trait.getTypeInst(), field[0], table, offset, tupleArity)
 
-  for x in args:
-    result.add x
+proc pointerProcError(trait: typedesc[ValidTraitor], T: typedesc): string =
+  for name, field in default(trait).fieldPairs:
+    when field is (proc):
+      when not compiles(emitPointerProc(name, field, T)):
+        result.add name
+        result.add ": "
+        result.add $typeof(field)
+        result.add "\n"
+    else:
+      for child in field.fields:
+        when not compiles(emitPointerProc(name, child, T)):
+          result.add name
+          result.add ": "
+          result.add $typeof(child)
+          result.add "\n"
 
-template implTrait(trait: typedesc[tuple]) =
+macro doError(msg: static string, info: static typeof(instantiationInfo())) =
+  let node = newStmtList()
+  node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
+  error(msg, node)
+
+template implTrait(trait: typedesc[ValidTraitor]) =
   var traitVtable: seq[pointer]
   var counter {.compileTime.} = 0u16
+
   converter toTraitor[T](val: sink T): Traitor[trait] =
-    const id = counter
-    static: inc counter
-    once:
+    var id {.global.} = 0u16
+    const errors = pointerProcError(trait, T)
+
+    when errors.len > 0:
+      doError(
+          "'$#' failed to match the trait '$#' it does not implement the following procedure(s):\n$#" %
+          [$T, $trait, errors], instantiationInfo(fullpaths = true))
+    else:
       for name, field in default(trait).fieldPairs:
-        traitVtable.add cast[pointer](emitPointerProc(name, field, T))
-    TypedTraitor[T, trait](id: id, data: val)
+        traitVtable.add emitPointerProc(name, field, T)
+      id = uint16 traitVtable.high div trait.getTraitImpls()
 
-  template `.()`(traitor: Traitor[trait], name: untyped, args: varargs[typed]): untyped {.inject.} =
-    callImpl(traitor, name, traitVtable, args)
+      TypedTraitor[T, trait](id: id, data: val)
 
-{.experimental: "dotOperators".}
+  genProcs(default(Traitor[trait]), traitVtable)
 
 
 type
   MyTrait = tuple[
-    doThing: proc(_: Atom) {.nimcall.},
+    doThing: (
+      proc(_: Atom) {.nimcall.},
+      proc(_: Atom, _: int) {.nimcall.}),
     doOtherThing: proc(_: Atom, _: float){.nimcall.}]
   MyOtherTrait = tuple[
-    doThing: proc(_: Atom) {.nimcall.},
-    doOtherThing: proc(_: Atom, _: string){.nimcall.}
-
-    ]
+    doThing: proc(_: var Atom) {.nimcall.},
+    doOtherThing: proc(_: Atom, _: string){.nimcall.}]
 
 implTrait MyTrait
-implTrait MyOtherTrait
 
 proc doThing(i: int) = echo i * 30
+proc doThing(i: var int) = inc i
+proc doThing(i, j: int) = echo (i: i, j: j)
 proc doOtherThing(a: int, b: float) = echo a + int(b)
 proc doOtherThing(a: int, b: string) = echo b, ": ", a
 
-proc doThing(f: float) = echo f
+var a: Traitor[MyTrait] = 100
+
+a.doThing()
+a.doThing(3)
+a.doOtherThing(float 3d)
+
+proc doThing(f: float) = echo f * 3
+proc doThing(f: var float) = f *= f
+proc doThing(f: float, i: int) = echo (f: f, i: i)
 proc doOtherThing(a, b: float) = echo a * b
 proc doOtherThing(a: float, b: string) = echo b, ": ", a
-
-var a: Traitor[MyTrait] = 100
-a.doThing()
-a.doOtherThing(3d)
 a = 3d
 
 a.doThing()
+a.doThing(3)
 a.doOtherThing(3d)
 
+implTrait MyOtherTrait
 var b: Traitor[MyOtherTrait] = 30
 b.doThing()
 b.doOtherThing("int")
@@ -156,6 +232,8 @@ type MyType = object
 proc `=destroy`(typ: MyType) = echo "Buh bye"
 
 proc doThing(typ: MyType) = echo (typ.x + typ.y) * 30
+proc doThing(typ: var MyType) = typ.x += typ.y
+proc doThing(typ: MyType, b: int) = echo (typ.x + typ.y) * b
 proc doOtherThing(typ: MyType, b: float) = echo typ.x + int(b)
 proc doOtherThing(typ: MyType, b: string) = echo b, ": ", typ.y
 
