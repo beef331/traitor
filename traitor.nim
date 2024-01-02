@@ -1,345 +1,169 @@
-import std/[macros, macrocache, strformat, genasts, sugar, algorithm, enumerate, tables, sets]
+import pkg/micros/introspection
+import std/[macros, genasts]
 
-type 
-  TraitorConvDefect = object of Defect
-  TraitorObj[T: static array] = object
-    traceProc: proc(data, env: pointer){.nimcall.}
-    destructorProc: proc(data: pointer){.nimcall.}
-    vTable: ptr seq[pointer]
-    idBacker: int # To allow typechecking at runtime
-    obj: pointer
+type Atom* = distinct void
 
-  TraitEntry = distinct NimNode
+proc atomCount(p: typedesc[proc]): int =
+  for field in default(paramsAsTuple(p(nil))).fields:
+    when field is Atom:
+      inc result
 
-  Traitor[T: static array] = typeof(new TraitorObj[T])
-
-
-proc `=destroy`[T](traitorObj: var TraitorObj[T]) =
-  if traitorObj.obj != nil:
-    traitorObj.destructorProc(traitorObj.obj)
-    dealloc(traitorObj.obj)
-
-proc `=trace`[T](traitorObj: var TraitorObj[T], env: pointer) =
-  if traitorObj.obj != nil:
-    traitorObj.traceProc(traitorObj.obj, env)
-
-proc id(traitEntry: TraitEntry): NimNode = NimNode(traitEntry)[0]
-proc names(traitEntry: TraitEntry): NimNode = NimNode(traitEntry)[1]
-
-iterator procs(traitEntry: TraitEntry): NimNode =
-  for x in NimNode(traitEntry)[2]:
-    yield x
-
-iterator idType(traitEntry: TraitEntry): (int, NimNode) =
-  for val in NimNode(traitEntry)[4].pairs:
-    yield val
-
-proc procCount(traitEntry: TraitEntry): int = NimNode(traitEntry)[2].len
-proc procIndex(traitEntry: TraitEntry, name: NimNode): int =
-  for i, x in NimNode(traitEntry)[2]:
-    if x.eqIdent name:
-      return i
-
-proc vtable(traitEntry: TraitEntry): NimNode = NimNode(traitEntry)[3]
-proc typeId(traitEntry: TraitEntry, theType: NimNode, errorIfNotFound = false): int =
-  for i, x in traitEntry.idType:
-    if x.sameType(theType):
-      return i
-  if errorIfNotFound:
-    error("Cannot get get a type id for given type", theType)
-  else:
-    result = NimNode(traitEntry)[4].len
-    NimNode(traitEntry)[4].add theType
+type
+  ValidTraitor = concept f
+    for field in f.fields:
+      field.paramTypeAt(0) is Atom
+      ##field.returnType isnot Atom
+      atomCount(typeof(field)) == 1
 
 
-const
-  traitTable = CacheSeq"TraitorTraitTable"##[
-    TraitEntry is defined as the following
-    TraitId - An array of integers which represent the type ID
-    TraitNames - An array of the typedesc which created this Trait
-    Procs - Name of procs and their types
-    VTableName - A symbol to the vtable
-    TypeNames - Array of symbols to fetch the id for traits
-  ]##
-  ids = CacheSeq"TraitorIdSeq"
-  idCount = CacheCounter"TraitorId"
+  Traitor[Traits: ValidTraitor] = ref object of RootObj
+    id: uint16
 
-proc isSelf*(n: NimNode): bool =
-  case n.kind
-  of nnkIdent, nnkSym:
-    n.eqIdent"Self"
-  else:
-    n[0].isSelf()
+  TypedTraitor[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
+    data: T
 
-
-proc isValidConcept(t: NimNode): bool =
-  let impl = t.getImpl[^1]
-  result = impl.kind == nnkTypeClassTy
-  if result:
-    for prc in impl[^1]:
-      if not prc.params[1][^2].isSelf:
-        error("First parameter should be type `Self`.", prc.params[1][^2])
-        result = false
-        break
-
-
-proc getOrAddId(desc: NimNode): int =
-  if not desc.isValidConcept:
-    error("Provided a type which is not a valid concept.", desc)
-  for i, id in enumerate ids:
-    if desc.sameType(id):
-      return i
-
-  result = idCount.value()
-  ids.add desc
-  inc idCount
-
-proc replaceSelf(node, with: NimNode) =
-  for i, n in node:
-    if n.kind == nnkSym and n.eqIdent"Self":
-      node[i] = with
+proc removeAtom(stmt, typ: NimNode): bool =
+  for i, node in stmt:
+    case node.kind
+    of nnkSym:
+      if node.eqIdent"Atom":
+        stmt[i] = typ
+        return true
     else:
-      replaceSelf(n, with)
+      result = result or removeAtom(node, typ)
 
-proc removeVarSelf(node: NimNode) =
-  for i, n in node:
-    if n.kind == nnkVarTy and n[0].kind == nnkSym and n[0].eqIdent"Self":
-      node[i] = n[0]
+
+macro emitPointerProc(name, prc, typ: typed): untyped =
+  let procType = prc.getType
+
+  result = genast():
+    proc() {.nimcall.} = discard
+
+
+
+  let call = newCall(name.strVal)
+
+  for i, def in procType[1..^1]:
+    if i == 0:
+      if not procType[1].eqIdent"void":
+        result.params[0] = procType[1]
     else:
-      removeVarSelf(n)
-
-proc getProcs(concepts: NimNode): NimNode =
-  result = nnkBracketExpr.newTree()
-
-  var convertedProcs: seq[NimNode]
-
-  for concpt in concepts:
-    for prc in concpt.getImpl[^1][^1]:
-      let checking = prc.copyNimTree
-      checking.replaceSelf(getType(int))
-      block search:
-        for x in convertedProcs:
-          if checking.sameType(x):
-            break search
-        result.add prc
-        convertedProcs.add checking
-
-proc getTraitEntry(conceptId: NimNode,  concepts = NimNode(nil)): (TraitEntry, bool) =
-  for traitEntry in traitTable:
-    for i, x in traitEntry[0]:
-      if conceptId[i] != x:
-        break
-    return (TraitEntry(traitEntry), false)
-
-  if concepts == nil:
-    error("Concept is not registered yet", conceptId)
-
-
-  result[0] =
-    TraitEntry(
-      newStmtList(
-        conceptId,
-        concepts,
-        getProcs(concepts),
-        gensym(nskVar, "TraitorTable"),
-        newStmtList()
-      )
-    )
-  result[1] = true
-
-  traitTable.add NimNode result[0]
-
-macro isType(traitor: Traitor, res: typed): untyped =
-  let
-    ids = traitor.getTypeInst()
-    (traitEntry, _) = getTraitEntry(ids)
-    theId = traitEntry.typeId(res.getTypeInst(), errorIfNotFound = true)
-
-  result = genAst(traitor, theId):
-    traitor.idBacker == theId
-
-macro traitorImpl(descs: varargs[typed]): untyped =
-  if descs.len == 0:
-    error("Did not provide any types to `implObj`.")
-
-  result = nnkBracket.newTree()
-  for desc in descs:
-    result.add newLit getOrAddId(desc)
-
-  result = nnkBracketExpr.newTree(bindSym"Traitor", result)
-
-macro toTraitor(val: typed, traits: varargs[typed]): untyped =
-
-  let id = nnkBracket.newTree()
-
-  for x in traits:
-    id.add newLit x.getOrAddId()
-
-  let
-    (traitorEntry, addedVtable) = getTraitEntry(id, traits)
-    typ = val.getTypeInst()
-    typId = traitorEntry.typeId(typ)
-    theVtable = traitorEntry.vtable
-
-  result = newStmtList()
-  if addedVtable:
-    result.add:
-      genast(theVtable):
-        var theVtable {.global.}: seq[pointer]
-  else:
-    result.add:
-      genast(typId, theVtable, procCount = traitorEntry.procCount):
-        theVtable.setLen(max(theVtable.len, procCount * typId))
-
-  for i, prc in enumerate traitorEntry.procs:
-    let ptyp = nnkProcTy.newTree(prc[3].copyNimTree, nnkPragma.newTree(ident"nimcall"))
-
-    ptyp.replaceSelf(typ)
-    result.add:
-      genAst(
-        typ,
-        ptyp,
-        id,
-        typId,
-        theVtable,
-        name = ident($prc[0]),
-        procCount = traitorEntry.procCount,
-        index = newLit(i)
-      ):
-        theVtable.setLen(max(typId + 1 * procCount, theVtable.len))
-        if theVtable[procCount * typId + index] == nil:
-          theVtable[procCount * typId + index] = (ptyp)(name)
-
-  result.add:
-    genast(val, id, typId, theVtable, typ):
-        let data =
-          when val is ref:
-            GcRef(typ)
-            cast[pointer](val)
-          elif val is ptr:
-            cast[pointer](val)
+      let
+        arg = genSym(nskParam, "param" & $i)
+        theTyp =
+          if def == bindSym"Atom":
+            nnkBracketExpr.newTree(bindSym"TypedTraitor", typ, prc[0][1])
           else:
-            let thePtr = create(typeof(val))
-            thePtr[] = val
-            thePtr
+            def
 
-        const
-          theDestructor = proc(data: pointer) {.nimcall.} =
-            `=destroy`(cast[ptr typ](data)[])
-          theTracer = proc(data, env: pointer) {.nimcall.} =
-            `=trace`(cast[ptr typ](data)[], env)
-        Traitor[id](
-          idBacker: typId,
-          obj: data,
-          vtable: theVtable.addr,
-          destructorProc: theDestructor,
-          traceProc: theTracer
-        )
+      if theTyp.removeAtom(typ) or def.eqIdent"Atom":
+        call.add nnkDotExpr.newTree(arg, ident"data")
+      else:
+        call.add arg
+      result.params.add newIdentDefs(arg, theTyp)
 
+  result[^1] = call
+
+  #[ Emit:
+    proc(traitor: Traitor[prc[0][1]], ...): prc[^1] =
+      let conv = cast[TypedTraitor[typ, prc[0][1]]](traitor)
+      name(conv.data, ...)
+  ]#
+
+macro callImpl*(trait: Traitor, name: untyped, table: seq[pointer], args: typed): untyped =
+  let
+    tupl = trait.getTypeInst[^1].getTypeImpl()
+    tuplArity = tupl.len
+  var
+    procType: NimNode
+    offset = 0
+  for field in tupl:
+    if field[0].eqIdent name:
+      procType = field[1]
+      break
+    inc offset
+
+  if procType.kind == nnkEmpty:
+    error("No procedure named '" & $name & "' found for '" & trait.getType.repr & "'.", name)
+
+  discard procType.removeAtom(trait.getType)
+
+  let theCast = nnkCast.newTree(procType):
+    genast(trait, table, offset, tuplArity, procType):
+      table[trait.id * tuplArity + offset]
+  result = newCall(theCast, trait)
+
+  for x in args:
+    result.add x
+
+template implTrait(trait: typedesc[tuple]) =
+  var traitVtable: seq[pointer]
+  var counter {.compileTime.} = 0u16
+  converter toTraitor[T](val: sink T): Traitor[trait] =
+    const id = counter
+    static: inc counter
+    once:
+      for name, field in default(trait).fieldPairs:
+        traitVtable.add cast[pointer](emitPointerProc(name, field, T))
+    TypedTraitor[T, trait](id: id, data: val)
+
+  template `.()`(traitor: Traitor[trait], name: untyped, args: varargs[typed]): untyped {.inject.} =
+    callImpl(traitor, name, traitVtable, args)
 
 {.experimental: "dotOperators".}
-macro `.`*(traitor: Traitor, procName: untyped, args: varargs[typed]): untyped =
-  let
-    id = traitor.getTypeInst[^1]
-    (traitorEntry, _) = id.getTraitEntry()
-    theVtable = traitorEntry.vtable
-  for i, x in enumerate traitorEntry.procs:
-    if x[0].eqIdent(procName):
-      let callTyp = nnkProcTy.newTree(x[3].copyNimTree, nnkPragma.newTree(ident"nimcall"))
-      callTyp.removeVarSelf()
-      callTyp.replaceSelf(getType(pointer))
-
-      result =
-        genAst(traitor, callTyp, theVtable, id = newLit(i), procCount = traitorEntry.procCount()):
-          cast[callTyp](theVtable[id + traitor.idBacker * procCount])(traitor.obj)
-      for arg in args:
-        result.add arg
-
-macro getName*(traitor: Traitor): untyped =
-  let
-    ids = traitor.getTypeInst()
-    (traitEntry, _) = getTraitEntry(ids)
-  result = nnkCaseStmt.newTree()
-  result.add nnkDotExpr.newTree(traitor, ident"idBacker")
-  for i, x in traitEntry.idType:
-    result.add nnkOfBranch.newTree(newLit i, newLit repr(x))
-
-  result.add nnkElse.newTree(newLit"Unknown Type")
-
-
-template `as`*(traitor: Traitor, desc: typedesc): auto =
-  const res {.gensym.} = default(desc)
-  if not traitor.isType(res):
-    raise (ref TraitorConvDefect)(msg: "Cannot convert object from type")
-
-  cast[ptr desc](traitor.obj)[]
-
-proc isOf*(traitor: Traitor, desc: typedesc): bool =
-  var a: desc
-  traitor.isType(a)
 
 
 type
-  BoundObject* = concept
-    proc getBounds(a: var Self, b: int): (int, int, int, int)
-    proc doOtherThing(a: Self): int
-  DuckObject* = concept
-    proc quack(a: var Self)
+  MyTrait = tuple[
+    doThing: proc(_: Atom) {.nimcall.},
+    doOtherThing: proc(_: Atom, _: float){.nimcall.}]
+  MyOtherTrait = tuple[
+    doThing: proc(_: Atom) {.nimcall.},
+    doOtherThing: proc(_: Atom, _: string){.nimcall.}
 
-type
-  MyObj = object
-    x, y, z, w: int
-  MyOtherObj = object
-    a: byte
-  MyRef = ref object
-    a: int
+    ]
 
-proc `=destroy`(myObj: var MyObj) =
-  echo myObj, " destroyed."
+implTrait MyTrait
+implTrait MyOtherTrait
 
+proc doThing(i: int) = echo i * 30
+proc doOtherThing(a: int, b: float) = echo a + int(b)
+proc doOtherThing(a: int, b: string) = echo b, ": ", a
 
-proc getBounds(a: var MyOtherObj, b: int): (int, int, int, int) = (10, 20, 30, 40 * b)
-proc doOtherThing(a: MyOtherObj): int = 300
-proc quack(a: var MyOtherObj) =
-  a.a = 233
+proc doThing(f: float) = echo f
+proc doOtherThing(a, b: float) = echo a * b
+proc doOtherThing(a: float, b: string) = echo b, ": ", a
 
-proc getBounds(a: var MyObj, b: int): (int, int, int, int) =
-  result = (a.x, a.y, a.z, a.w * b)
-  a.x = 100
-  a.y = 300
+var a: Traitor[MyTrait] = 100
+a.doThing()
+a.doOtherThing(3d)
+a = 3d
 
-proc doOtherThing(a: MyObj): int = a.y * a.z * a.w
+a.doThing()
+a.doOtherThing(3d)
 
-proc quack(a: var MyObj) = a.x = 300
+var b: Traitor[MyOtherTrait] = 30
+b.doThing()
+b.doOtherThing("int")
+b = 3d
 
+b.doThing()
+b.doOtherThing("float")
 
-proc getBounds(a: var MyRef, b: int): (int, int, int, int) =
-  result = (3, 2, 1, 30)
-  # It's a ptr to a ptr it seems so this doesnt work
-  a.a = 300
+type MyType = object
+  x, y: int
 
-proc doOtherThing(a: MyRef): int = 300
+proc `=destroy`(typ: MyType) = echo "Buh bye"
 
-proc quack(a: var MyRef) = a.a = 10
+proc doThing(typ: MyType) = echo (typ.x + typ.y) * 30
+proc doOtherThing(typ: MyType, b: float) = echo typ.x + int(b)
+proc doOtherThing(typ: MyType, b: string) = echo b, ": ", typ.y
 
-converter toQuackers[T: DuckObject](ducker: T): traitorImpl(DuckObject) = ducker.toTraitor(DuckObject)
+a = MyType(x: 20, y: 1)
+a.doThing()
+a.doOtherThing(3d)
 
-proc main() =
-  var a: traitorImpl(BoundObject, DuckObject)
-  var b = MyObj(x: 100, y: 200)
+b = MyType(x: 20, y: 1)
+b.doThing()
+b.doOtherThing("My own Type!")
 
-  let c = [b.toQuackers, MyOtherObj(a: 0)]
-  for x in c:
-    x.quack()
-    if x.isOf MyObj:
-      echo x as MyObj
-    elif x.isOf MyOtherObj:
-      echo x as MyOtherObj
-    echo x.getName()
-
-
-  echo c[0] as MyObj
-  echo c[1] as MyOtherObj
-
-
-main()
