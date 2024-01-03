@@ -43,7 +43,7 @@ proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
     proc() {.nimcall.} = discard
 
   let
-    call = newCall(name.strVal)
+    call = newCall(ident name.strVal)
     traitType = nnkBracketExpr.newTree(bindSym"TypedTraitor", instType, traitType)
 
   if not procType[0].eqIdent"void":
@@ -61,10 +61,9 @@ proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
     result.params.add newIdentDefs(arg, theTyp)
   let conv = nnkPar.newTree(origType.getTypeInst().copyNimTree)
   discard conv.removeAtom(instType)
-  call[0] = newCall(conv, ident name.strVal)
+  #call[0] = newCall(conv, ident name.strVal)
   result[^1] = call
   result = nnkCast.newTree(bindSym"pointer", result)
-
 
 macro emitPointerProc(name, prc, typ: typed): untyped =
   let
@@ -77,6 +76,7 @@ macro emitPointerProc(name, prc, typ: typed): untyped =
       result.add genPointerProc(name, theProc, typ, trait)
   else:
     result.add genPointerProc(name, prc, typ, trait)
+
 
 proc getTupleArity(tupl: NimNode): int =
   for field in tupl:
@@ -126,7 +126,6 @@ proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int):
     for child in typ:
       result.add genProc(child, traitType, name, table, offset, arity)
   else:
-    echo typ.treeRepr
     error("Unexpected type", typ)
 
 
@@ -164,11 +163,11 @@ template implTrait(trait: typedesc[ValidTraitor]) =
   var traitVtable: seq[pointer]
   var counter {.compileTime.} = 0u16
 
-  converter toTraitor[T](val: sink T): Traitor[trait] =
+  proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
     var id {.global.} = 0u16
     const errors = pointerProcError(trait, T)
 
-    when errors.len > 0:
+    when false and errors.len > 0:
       doError(
           "'$#' failed to match the trait '$#' it does not implement the following procedure(s):\n$#" %
           [$T, $trait, errors], instantiationInfo(fullpaths = true))
@@ -179,6 +178,7 @@ template implTrait(trait: typedesc[ValidTraitor]) =
 
       TypedTraitor[T, trait](id: id, data: val)
 
+
   genProcs(default(Traitor[trait]), traitVtable)
 
 
@@ -187,7 +187,8 @@ type
     doThing: (
       proc(_: Atom) {.nimcall.},
       proc(_: Atom, _: int) {.nimcall.}),
-    doOtherThing: proc(_: Atom, _: float){.nimcall.}]
+    doOtherThing: proc(_: Atom, _: float){.nimcall.},
+    `$`: proc(_: Atom): string {.nimcall.}]
   MyOtherTrait = tuple[
     doThing: proc(_: var Atom) {.nimcall.},
     doOtherThing: proc(_: Atom, _: string){.nimcall.}]
@@ -200,8 +201,8 @@ proc doThing(i, j: int) = echo (i: i, j: j)
 proc doOtherThing(a: int, b: float) = echo a + int(b)
 proc doOtherThing(a: int, b: string) = echo b, ": ", a
 
-var a: Traitor[MyTrait] = 100
-
+var a = 100.toTrait(MyTrait)
+echo a
 a.doThing()
 a.doThing(3)
 a.doOtherThing(float 3d)
@@ -211,17 +212,18 @@ proc doThing(f: var float) = f *= f
 proc doThing(f: float, i: int) = echo (f: f, i: i)
 proc doOtherThing(a, b: float) = echo a * b
 proc doOtherThing(a: float, b: string) = echo b, ": ", a
-a = 3d
+a = 3d.toTrait(MyTrait)
 
+echo a
 a.doThing()
 a.doThing(3)
 a.doOtherThing(3d)
 
 implTrait MyOtherTrait
-var b: Traitor[MyOtherTrait] = 30
+var b = 30.toTrait MyOtherTrait
 b.doThing()
 b.doOtherThing("int")
-b = 3d
+b = 3d.toTrait MyOtherTrait
 
 b.doThing()
 b.doOtherThing("float")
@@ -237,11 +239,11 @@ proc doThing(typ: MyType, b: int) = echo (typ.x + typ.y) * b
 proc doOtherThing(typ: MyType, b: float) = echo typ.x + int(b)
 proc doOtherThing(typ: MyType, b: string) = echo b, ": ", typ.y
 
-a = MyType(x: 20, y: 1)
+a = MyType(x: 20, y: 1).toTrait MyTrait
 a.doThing()
 a.doOtherThing(3d)
+echo a
 
-b = MyType(x: 20, y: 1)
+b = MyType(x: 20, y: 1).toTrait MyOtherTrait
 b.doThing()
 b.doOtherThing("My own Type!")
-
