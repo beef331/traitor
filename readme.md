@@ -1,11 +1,10 @@
 # Traitor
 
-A macro heavy trait library made from bordem.
-
+A trait library made from bordem.
 
 ## What does it do?!
 
-Traitor allows one to use to use the new tuples to describe interfaces that can ensure types implement procedures for runtime dispatch.
+Traitor allows one to use to use the tuples to describe interfaces that can ensure types implement procedures for runtime dispatch.
 
 The trait tuple must be an distinct tuple.
 All proceduress must have `Atom` appearing only once as the first argument.
