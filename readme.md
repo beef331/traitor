@@ -7,19 +7,20 @@ A macro heavy trait library made from bordem.
 
 Traitor allows one to use to use the new tuples to describe interfaces that can ensure types implement procedures for runtime dispatch.
 
-The trait tuple must be an alias to a tuple it also requires `Atom` to appear only once as the first argument.
-All trait procedures should be annotated with their appropriate calling convention.
-As Nim defaults to `{.closure.}` for types you must annotate it `{.nimcall.}` at the very least.
+The trait tuple must be an distinct tuple.
+All proceduress must have `Atom` appearing only once as the first argument.
+All trait procedures should be annotated with their appropriate calling convention,
+as Nim defaults to `{.closure.}` for types you must annotate it `{.nimcall.}` at the very least.
 
 
 The following is an example:
 
 ```nim
 type
-  Clickable = tuple[ # Always use a type alias for the tuple interface to make it clean and cause `implTrait` requires it
+  Clickable = distinct tuple[ # Always use a distinct tuple interface to make it clean and cause `implTrait` requires it
       over: proc(a: Atom, x, y: int): bool {.nimcall.}, # Notice we usue `Atom` as the first parameter and it's always the only `Atom`
       onClick: proc(a: Atom) {.nimcall.}]
-  UnimplementedTrait = tuple[
+  UnimplementedTrait = distinct tuple[
     overloaded: ( # We can add overloads by using a tuple of procs
       proc(a: var Atom) {.nimcall.},
       proc(a: Atom, b: int) {.nimcall.})

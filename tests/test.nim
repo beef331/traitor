@@ -1,10 +1,10 @@
 import ../traitor
 import std/unittest
 type 
-  BoundObject* = tuple[
+  BoundObject* = distinct tuple[
     getBounds: proc (a: var Atom, b: int): (int, int, int, int){.nimcall.},
     doOtherThing: proc(a: Atom): int {.nimcall.}]
-  DuckObject* = tuple[quack: proc(a: var Atom){.nimcall.}]
+  DuckObject* = distinct tuple[quack: proc(a: var Atom){.nimcall.}]
 
 type
   MyObj = object

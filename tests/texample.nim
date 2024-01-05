@@ -1,9 +1,14 @@
 import ../traitor
 
 type
-  Clickable = tuple[
-      over: proc(a: Atom, x, y: int): bool {.nimcall.},
+  Clickable = distinct tuple[ # Always use a distinct tuple interface to make it clean and cause `implTrait` requires it
+      over: proc(a: Atom, x, y: int): bool {.nimcall.}, # Notice we usue `Atom` as the first parameter and it's always the only `Atom`
       onClick: proc(a: Atom) {.nimcall.}]
+  UnimplementedTrait = distinct tuple[
+    overloaded: ( # We can add overloads by using a tuple of procs
+      proc(a: var Atom) {.nimcall.},
+      proc(a: Atom, b: int) {.nimcall.})
+    ]
 
   Button = object
     x, y, w, h: int
@@ -24,7 +29,7 @@ proc over(radio: Radio, x, y: int): bool =
 
 proc onClick(radio: Radio) = echo "Clicked a radio"
 
-emitConverter Button, Clickable
+emitConverter Button, Clickable # Emit a `converter` for `Button` -> `Traitor[Clickable]`
 
 
 var
