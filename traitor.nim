@@ -1,5 +1,5 @@
 import pkg/micros/introspection
-import std/[macros, genasts, strutils, strformat]
+import std/[macros, genasts, strutils, strformat, typetraits]
 
 type Atom* = distinct void ##[
   Default field name to be replaced for all Traits.
@@ -13,7 +13,7 @@ proc atomCount(p: typedesc[proc]): int =
 
 type
   ValidTraitor* = concept f ## Forces tuples to only have procs that have `Atom` inside first param
-    for field in f.fields:
+    for field in f.distinctBase().fields:
       when field is (proc):
         field.paramTypeAt(0) is Atom
         atomCount(typeof(field)) == 1
@@ -21,7 +21,7 @@ type
         for child in field.fields:
           child.paramTypeAt(0) is Atom
           atomCount(typeof(child)) == 1
-    f is tuple
+    f.distinctBase() is tuple
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj
     id*: uint16
@@ -101,7 +101,7 @@ proc getTupleArity(tupl: NimNode): int =
       error("Unexpected AST: ", field)
 
 macro getTraitImpls*(tupl: typedesc): untyped =
-  newLit tupl.getTypeImpl[^1].getTypeImpl.getTupleArity()
+  newLit tupl.getTypeImpl[^1].getTypeImpl[0].getTupleArity()
 
 proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int): NimNode =
   case typ.typeKind
@@ -142,16 +142,19 @@ proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int):
 
 
 macro genProcs(trait: Traitor, table: seq[pointer]): untyped =
-  let
-    tupl = trait.getTypeInst[^1].getTypeImpl()
-    tupleArity = tupl.getTupleArity()
+  var tupl = trait.getTypeInst[^1].getTypeImpl()
+  if tupl.kind != nnkDistinctTy:
+    error("Trait is not a distinct tuple", tupl)
+  tupl = tupl[0]
+  let tupleArity = tupl.getTupleArity()
+
   result = newStmtList()
   var offset = 0
   for field in tupl:
     result.add genProc(field[1], trait.getTypeInst(), field[0], table, offset, tupleArity)
 
 proc pointerProcError(trait: typedesc[ValidTraitor], T: typedesc): string =
-  for name, field in default(trait).fieldPairs:
+  for name, field in default(trait).distinctBase().fieldPairs:
     when field is (proc):
       when not compiles(emitPointerProc(name, field, T)):
         result.add name
@@ -159,7 +162,7 @@ proc pointerProcError(trait: typedesc[ValidTraitor], T: typedesc): string =
         result.add $typeof(field)
         result.add "\n"
     else:
-      for child in field.fields:
+      for child in field.distinctBase().fields:
         when not compiles(emitPointerProc(name, child, T)):
           result.add name
           result.add ": "
@@ -208,7 +211,7 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
           "'$#' failed to match the trait '$#' it does not implement the following procedure(s):\n$#" %
           [$T, $trait, errors], instantiationInfo(fullpaths = true))
     else:
-      for name, field in default(trait).fieldPairs:
+      for name, field in default(trait).distinctBase().fieldPairs:
         traitVtable.add emitPointerProc(name, field, T)
       id = uint16 traitVtable.high div trait.getTraitImpls()
 
@@ -225,13 +228,13 @@ template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
 
 when isMainModule:
   type
-    MyTrait = tuple[
+    MyTrait = distinct tuple[
       doThing: (
         proc(_: Atom) {.nimcall.},
         proc(_: Atom, _: int) {.nimcall.}),
       doOtherThing: proc(_: Atom, _: float){.nimcall.},
       `$`: proc(_: Atom): string {.nimcall.}]
-    MyOtherTrait = tuple[
+    MyOtherTrait = distinct tuple[
       doThing: proc(_: var Atom) {.nimcall.},
       doOtherThing: proc(_: Atom, _: string){.nimcall.}]
 
