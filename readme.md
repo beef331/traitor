@@ -7,7 +7,7 @@ A trait library made from bordem.
 Traitor allows one to use to use the tuples to describe interfaces that can ensure types implement procedures for runtime dispatch.
 
 The trait tuple must be an distinct tuple.
-All proceduress must have `Atom` appearing only once as the first argument.
+All procedures must have `Atom` appearing only once as the first argument.
 All trait procedures should be annotated with their appropriate calling convention,
 as Nim defaults to `{.closure.}` for types you must annotate it `{.nimcall.}` at the very least.
 
