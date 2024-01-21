@@ -29,10 +29,6 @@ type
   TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
     data*: T
 
-template typedTo*[T](trait: typedesc[ValidTraitor], _: typedesc[T]): untyped =
-  ## Takes in a `trait` and `T` and emits `TypedTraitor[T, trait]`
-  TypedTraitor[T, trait]
-
 proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
   ## Converts `tratr` to `TypedTrait[T, Traits]` then access `data`
   TypedTraitor[T, Traits](tratr).data

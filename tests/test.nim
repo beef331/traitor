@@ -40,6 +40,10 @@ proc doOtherThing(a: MyRef): int = 300
 
 proc quack(a: var MyRef) = a.a = 10
 
+type
+  BoundObj[T] = TypedTraitor[T, BoundObject]
+  DuckObj[T] = TypedTraitor[T, BoundObject]
+
 emitConverter MyObj, BoundObject
 emitConverter MyObj, DuckObject
 emitConverter MyOtherObj, BoundObject
@@ -66,14 +70,14 @@ test "Basic data logic":
   var myData = [Traitor[BoundObject] valA, valB, valC, valD, MyLateType(a: 300)]
   check myData[0].getData(MyObj) == MyObj(x: 0, y: 10, z: 30, w: 100)
   for x in myData.mitems:
-    if x of BoundObject.typedTo(MyObj):
+    if x of BoundObj[MyObj]:
       check x.getData(MyObj).x == 0
       check x.getBounds(3) == (0, 10, 30, 300)
       let myObj = x.getData(MyObj)
       check x.doOtherThing() == myObj.y * myObj.z * myObj.w
-    elif x of BoundObject.typedTo(MyRef):
+    elif x of BoundObj[MyRef]:
       check x.getBounds(3) == (3, 2, 1, 30)
-    elif x of BoundObject.typedTo(MyOtherObj):
+    elif x of BoundObj[MyOtherObj]:
       check x.getBounds(3) == (10, 20, 30, 120)
       check x.doOtherThing() == 300
   

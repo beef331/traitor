@@ -4,20 +4,21 @@ A trait library made from bordem.
 
 ## What does it do?!
 
-Traitor allows one to use to use the tuples to describe interfaces that can ensure types implement procedures for runtime dispatch.
+Traitor allows one to use to use tuples to describe interfaces that can ensure types implement procedures for runtime dispatch.
 
 The trait tuple must be an distinct tuple.
 All procedures must have `Atom` appearing only once as the first argument.
 All trait procedures should be annotated with their appropriate calling convention,
-as Nim defaults to `{.closure.}` for types you must annotate it `{.nimcall.}` at the very least.
+as Nim defaults to `{.closure.}` for types you must annotate it `{.nimcall.}`.
 
 
 The following is an example:
 
 ```nim
+import traitor
 type
   Clickable = distinct tuple[ # Always use a distinct tuple interface to make it clean and cause `implTrait` requires it
-      over: proc(a: Atom, x, y: int): bool {.nimcall.}, # Notice we usue `Atom` as the first parameter and it's always the only `Atom`
+      over: proc(a: Atom, x, y: int): bool {.nimcall.}, # Notice we use `Atom` as the first parameter and it's always the only `Atom`
       onClick: proc(a: Atom) {.nimcall.}]
   UnimplementedTrait = distinct tuple[
     overloaded: ( # We can add overloads by using a tuple of procs
@@ -46,6 +47,7 @@ proc onClick(radio: Radio) = echo "Clicked a radio"
 
 emitConverter Button, Clickable # Emit a `converter` for `Button` -> `Traitor[Clickable]`
 
+type ClickObj[T] = TypedTraitor[T, Clickable]
 
 var
   elements = [
@@ -59,9 +61,9 @@ assert elements[1].over(33, 33)
 assert elements[2].over(30, 30)
 
 for i, x in elements:
-  if x of Clickable.typedTo(Button): # We can use `of` to check if it's the given type if we use `typedTo` to emit `TypedTraitor[T, Trait]`
+  if x of  TypedTraitor[Button, Clickable]: # We can use `of` to check if it's the given type
     assert i in [0, 1]
-  elif x of Clickable.typedTo(Radio):
+  elif x of ClickObj[Radio]:
     assert i == 2
 
 assert elements[2].getData(Radio) == Radio(x: 30, y: 30, r: 10) # We can use `getData` to extract data
