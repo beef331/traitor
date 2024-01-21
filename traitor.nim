@@ -29,6 +29,11 @@ type
   TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
     data*: T
 
+  StaticTraitor*[Traits: ValidTraitor] = concept st ## Allows generic dispatch on types that fit traits
+    st.toTrait(Traits) is Traitor[Traits]
+
+  AnyTraitor*[Traits: ValidTraitor] = StaticTraitor[Traits] or Traitor[Traits] ## Allows writing a procedure that operates on both static and runtime.
+
 proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
   ## Converts `tratr` to `TypedTrait[T, Traits]` then access `data`
   TypedTraitor[T, Traits](tratr).data
