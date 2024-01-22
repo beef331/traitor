@@ -77,24 +77,64 @@ proc writeData*(ss: var StringStream, dest: pointer, amount: int): int =
 proc setPos*(ss: var StringStream, pos: int) = ss.pos = pos
 proc getPos*(ss: var StringStream): int = ss.pos
 
+
+
+type
+  FileStream* = object
+    file: File
+
+proc init*(_: typedesc[FileStream], path: string, mode: FileMode = fmRead): FileStream =
+  FileStream(file: open(path, mode))
+
+proc `=destroy`(fs: FileStream) =
+  close(fs.file)
+
+proc readData*(fs: var FileStream, dest: pointer, amount: int): int =
+  fs.file.readBuffer(dest, amount)
+
+proc writeData*(fs: var FileStream, data: pointer, amount: int): int =
+  fs.file.writeBuffer(data, amount)
+
+proc atEnd*(fs: var FileStream): bool = fs.file.endOfFile()
+
+proc setPos*(fs: var FileStream, pos: int) = fs.file.setFilePos(pos)
+proc getPos*(fs: var FileStream): int = int fs.file.getFilePos()
+
 when isMainModule:
-  var a = StringStream(data: "Hello") # Statically dispatched
-  echo a.read(array[5, char])
-  a.setPos(0)
-  echo a.read(5)
-  discard a.write(", World!")
-  a.setPos(0)
-  echo a.read(array[13, char])
-  a.setPos(0)
-  echo a.read(13)
+  if true:
+    var a = StringStream(data: "Hello") # Statically dispatched
+    assert a.read(array[5, char]) == "Hello"
+    a.setPos(0)
+    assert a.read(5) == "Hello"
+    discard a.write(", World!")
+    a.setPos(0)
+    assert a.read(array[13, char]) == "Hello, World!"
+    a.setPos(0)
+    assert a.read(array[13, char]) == "Hello, World!"
 
+  if true:
+    var fs = FileStream.init("/tmp/test.txt", fmReadWrite)
+    discard fs.write"Hello"
+    fs.setPos(0)
+    assert fs.read(array[5, char]) == "Hello"
+    fs.setPos(0)
+    assert fs.read(5) == "Hello"
+    discard fs.write(", World!")
+    fs.setPos(0)
+    assert fs.read(array[13, char]) == "Hello, World!"
+    fs.setPos(0)
+    assert fs.read(array[13, char]) == "Hello, World!"
 
-  var b = StringStream(data: "Hello").toTrait StreamTrait # Runtime dispatched
-  echo b.read(array[5, char])
-  b.setPos(0)
-  echo b.read(5)
-  discard b.write(", World!")
-  b.setPos(0)
-  echo b.read(array[13, char])
-  b.setPos(0)
-  echo b.read(13)
+  var strms = [StringStream().toTrait StreamTrait, FileStream.init("/tmp/test2.txt", fmReadWrite).toTrait StreamTrait]
+  for strm in strms.mitems:
+    discard strm.write "Hello"
+    strm.setPos(0)
+    assert strm.read(array[5, char]) == "Hello"
+    strm.setPos(0)
+    assert strm.read(5) == "Hello"
+    discard strm.write(", World!")
+    strm.setPos(0)
+    assert strm.read(array[13, char]) == "Hello, World!"
+    strm.setPos(0)
+    assert strm.read(array[13, char]) == "Hello, World!"
+
