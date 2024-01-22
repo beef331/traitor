@@ -77,8 +77,6 @@ proc writeData*(ss: var StringStream, dest: pointer, amount: int): int =
 proc setPos*(ss: var StringStream, pos: int) = ss.pos = pos
 proc getPos*(ss: var StringStream): int = ss.pos
 
-
-
 type
   FileStream* = object
     file: File
