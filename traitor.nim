@@ -194,14 +194,14 @@ proc format(val: typeof(instantiationInfo())): string =
 template implTrait*(trait: typedesc[ValidTraitor]) =
   ## Emits the `vtable` for the given `trait` and a procedure for types to convert to `trait`.
   ## It is checked that `trait` is only implemented once so repeated calls error.
-  const info = instantiationInfo(fullpaths = true)
+  const info {.used.} = instantiationInfo(fullpaths = true)
   static:
-    const (has, ind) = traitsContain(trait)
+    const (has, ind {.used.}) = traitsContain(trait)
     when has:
       doError("Trait named '" & $trait & "' was already implemented at: " & implementedTraits[ind][1].format, info)
     addTrait(trait, instantiationInfo(fullpaths = true))
   var traitVtable: seq[pointer]
-  var counter {.compileTime.} = 0u16
+  var counter {.compileTime, used.} = 0u16
 
   proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
     var id {.global.} = 0u16
