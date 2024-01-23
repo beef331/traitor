@@ -13,19 +13,22 @@ type
 
   PrimitiveBase = concept pb
     pb.distinctBase is PrimitiveAtom
-  PrimitiveAtom = SomeOrdinal or SomeFloat or enum or bool or char
-  PrimitiveField = PrimitiveAtom or PrimitiveBase
+  PrimitiveAtom = SomeOrdinal or SomeFloat or enum or bool or char or PrimitiveBase or set
 
-  PrimitiveObject = concept type PO
-    for field in default(PO).fields:
-      field is PrimitiveField
+proc onlyPrimitives(val: typedesc[PrimitiveAtom]): bool = true
 
-  Array[T] = concept arr
-    arr is array
-    for x in arr.items:
-      x is T
+proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]]): bool =
+  onlyPrimitives(T)
 
-  Primitive = PrimitiveField or PrimitiveObject or Array[PrimitiveField or PrimitiveObject]
+proc onlyPrimitives(obj: typedesc[object or tuple]): bool =
+  for x in default(obj).fields:
+    when not onlyPrimitives(typeof(x)):
+      return false
+  true
+
+type
+  Primitive* = concept type P
+    onlyPrimitives(P)
 
 implTrait StreamTrait
 
