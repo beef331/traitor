@@ -54,15 +54,13 @@ proc removeAtom(stmt, typ: NimNode): bool =
 
 proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
   let procType = origType.getTypeInst[0].copyNimTree
-  result = genast():
-    proc() {.nimcall.} = discard
+  result = newProc(pragmas = nnkPragma.newTree(ident"nimcall"))
 
   let
     call = newCall(ident name.strVal)
     traitType = nnkBracketExpr.newTree(bindSym"TypedTraitor", instType, traitType)
 
-  if not procType[0].eqIdent"void":
-    result.params[0] = procType[0]
+  result.params[0] = procType[0]
 
   for i, def in procType[1..^1]:
     let
@@ -74,9 +72,7 @@ proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
     else:
       call.add arg
     result.params.add newIdentDefs(arg, theTyp)
-  let conv = nnkPar.newTree(origType.getTypeInst().copyNimTree)
-  discard conv.removeAtom(instType)
-  #call[0] = newCall(conv, ident name.strVal)
+
   result[^1] = call
   result = nnkCast.newTree(bindSym"pointer", result)
 
@@ -109,14 +105,13 @@ macro getTraitImpls*(tupl: typedesc): untyped =
 proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int): NimNode =
   case typ.typeKind
   of ntyProc:
-    result = genast(traitType, name = ident $name):
+    result = genast(name = ident $name):
       proc name*() = discard
-    if typ.params[0] != void.getType():
-      result.params[0] = typ.params[0].copyNimTree
+    result.params[0] = typ[0][0].copyNimTree
     let
       theCall = newCall(newEmptyNode())
       body = newStmtList()
-    for i, def in typ.params[1..^1]:
+    for i, def in typ[0][1..^1]:
       let paramName = genSym(nskParam, "param" & $i)
       var theArgTyp = newStmtList(def[^2])
       discard theArgTyp.removeAtom(traitType)
@@ -174,7 +169,8 @@ proc pointerProcError(trait: typedesc[ValidTraitor], T: typedesc): string =
 
 macro doError(msg: static string, info: static typeof(instantiationInfo())) =
   let node = newStmtList()
-  node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
+  when declared(setLineInfo):
+    node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
   error(msg, node)
 
 var implementedTraits {.compileTime.}: seq[(NimNode, typeof(instantiationInfo()))]
@@ -198,7 +194,8 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
   ## It is checked that `trait` is only implemented once so repeated calls error.
   const info {.used.} = instantiationInfo(fullpaths = true)
   static:
-    const (has, ind {.used.}) = traitsContain(trait)
+    const (has, ind) = traitsContain(trait)
+    discard ind
     when has:
       doError("Trait named '" & $trait & "' was already implemented at: " & implementedTraits[ind][1].format, info)
     addTrait(trait, instantiationInfo(fullpaths = true))
@@ -234,12 +231,12 @@ when isMainModule:
     MyTrait = distinct tuple[
       doThing: (
         proc(_: Atom) {.nimcall.},
-        proc(_: Atom, _: int) {.nimcall.}),
-      doOtherThing: proc(_: Atom, _: float){.nimcall.},
+        proc(_: Atom, b: int) {.nimcall.}),
+      doOtherThing: proc(_: Atom, b: float){.nimcall.},
       `$`: proc(_: Atom): string {.nimcall.}]
     MyOtherTrait = distinct tuple[
       doThing: proc(_: var Atom) {.nimcall.},
-      doOtherThing: proc(_: Atom, _: string){.nimcall.}]
+      doOtherThing: proc(_: Atom, b: string){.nimcall.}]
 
   implTrait MyTrait
   implTrait MyOtherTrait
