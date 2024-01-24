@@ -7,9 +7,11 @@ type Atom* = distinct void ##[
 ]##
 
 proc atomCount(p: typedesc[proc]): int =
+  {.warning[UnsafeDefault]: off.}
   for field in default(paramsAsTuple(p(nil))).fields:
     when field is Atom:
       inc result
+  {.warning[UnsafeDefault]: on.}
 
 type
   ValidTraitor* = concept f ## Forces tuples to only have procs that have `Atom` inside first param
@@ -204,10 +206,10 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
   var counter {.compileTime, used.} = 0u16
 
   proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
-    var id {.global.} = 0u16
+    var id {.global, used.} = 0u16
     const errors = pointerProcError(trait, T)
 
-    when false and errors.len > 0:
+    when errors.len > 0:
       doError(
           "'$#' failed to match the trait '$#' it does not implement the following procedure(s):\n$#" %
           [$T, $trait, errors], instantiationInfo(fullpaths = true))
