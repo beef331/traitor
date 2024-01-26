@@ -74,9 +74,7 @@ proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
     else:
       call.add arg
     result.params.add newIdentDefs(arg, theTyp)
-  let conv = nnkPar.newTree(origType.getTypeInst().copyNimTree)
-  discard conv.removeAtom(instType)
-  #call[0] = newCall(conv, ident name.strVal)
+
   result[^1] = call
   result = nnkCast.newTree(bindSym"pointer", result)
 
@@ -116,20 +114,19 @@ proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int):
     let
       theCall = newCall(newEmptyNode())
       body = newStmtList()
+    var idAccess: NimNode
     for i, def in typ.params[1..^1]:
       let paramName = genSym(nskParam, "param" & $i)
       var theArgTyp = newStmtList(def[^2])
       discard theArgTyp.removeAtom(traitType)
-
       if i == 0:
-        body.add newLetStmt(ident"id", newDotExpr(paramName, ident"id"))
-
+        idAccess = newDotExpr(paramName, ident"id")
       result.params.add newIdentDefs(paramName, theArgTyp)
       theCall.add paramName
     let toCastType = typ.copyNimTree()
     discard toCastType.removeAtom(traitType)
 
-    theCall[0] = genast(offset, arity, table, toCastType):
+    theCall[0] = genast(offset, arity, table, toCastType, id = idAccess):
       cast[toCastType](table[id * arity + offset])
 
     result[^1] = newStmtList(body, theCall)
@@ -220,8 +217,9 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
 
       TypedTraitor[T, trait](id: id, data: val)
 
-
+  {.push checks: off.}
   genProcs(default(Traitor[trait]), traitVtable)
+  {.pop.}
 
 template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
   ## Emits a converter from `T` to `Traitor[trait]`
