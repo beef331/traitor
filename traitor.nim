@@ -26,7 +26,7 @@ type
     f.distinctBase() is tuple
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj
-    id*: uint16
+    id*: int
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
     data*: T
@@ -52,14 +52,14 @@ proc removeAtom(stmt, typ: NimNode): bool =
     else:
       result = result or removeAtom(node, typ)
 
-proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
+proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
   let procType = origType.getTypeInst[0].copyNimTree
   result = genast():
     proc() {.nimcall.} = discard
 
   let
-    call = newCall(ident name.strVal)
-    traitType = nnkBracketExpr.newTree(bindSym"TypedTraitor", instType, traitType)
+    call = newCall(name)
+    traitType = nnkBracketExpr.newTree(bindSym"TypedTraitor", instType, origTraitType)
 
   if not procType[0].eqIdent"void":
     result.params[0] = procType[0]
@@ -75,21 +75,49 @@ proc genPointerProc(name, origType, instType, traitType: NimNode): NimNode =
       call.add arg
     result.params.add newIdentDefs(arg, theTyp)
 
-  result[^1] = call
-  result = nnkCast.newTree(bindSym"pointer", result)
-
-macro emitPointerProc(name, prc, typ: typed): untyped =
-  let
-    procType = prc.getTypeInst()
-    trait = prc[0][1]
-  result = nnkBracket.newTree()
-  case procType.typeKind
-  of ntyTuple:
-    for theProc in procType:
-      result.add genPointerProc(name, theProc, typ, trait)
+  let newTyp = origType.copyNimTree()
+  if newTyp[0][1][^2].kind == nnkVarTy: # We skip `Traitor` for `var`
+    newTyp[0][1][^2] = bindSym"pointer"
   else:
-    result.add genPointerProc(name, prc, typ, trait)
+    newTyp[0][1][^2] = nnkBracketExpr.newTree(bindSym"Traitor", origTraitType)
 
+  result[^1] = call
+  result = nnkCast.newTree(newTyp, result)
+
+macro emitPointerProc(trait, instType: typed): untyped =
+  result = nnkTupleConstr.newTree()
+  let impl = trait.getImpl[^1][0]
+  for def in impl:
+    let defImpl = def[^2].getTypeInst
+    case defImpl.typeKind
+    of ntyProc:
+      result.add genPointerProc(def[0], def[^2], instType, trait)
+    else:
+      for prc in defImpl:
+        result.add genPointerProc(def[0], prc, instType, trait)
+
+proc deAtomProcType(def, trait: NimNode): NimNode =
+  let typImpl =
+    if def.kind == nnkProcTy:
+      def
+    else:
+      def[^2].getTypeInst
+  result = typImpl.copyNimTree()
+  if result[0][1][^2].kind == nnkVarTy:
+    result[0][1][^2] = bindsym"pointer"
+  else:
+    discard result.removeAtom(nnkBracketExpr.newTree(bindSym"Traitor", trait))
+
+macro emitTupleType(trait: typed): untyped =
+  result = nnkTupleConstr.newTree()
+  for def in trait.getImpl[^1][0]:
+    let typImpl = def[^2].getTypeInst
+    case typImpl.typeKind
+    of ntyProc:
+      result.add deAtomProcType(def, trait)
+    else:
+      for prc in typImpl:
+        result.add deAtomProcType(prc, trait)
 
 proc getTupleArity(tupl: NimNode): int =
   for field in tupl:
@@ -127,7 +155,7 @@ proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int):
     discard toCastType.removeAtom(traitType)
 
     theCall[0] = genast(offset, arity, table, toCastType, id = idAccess):
-      cast[toCastType](table[id * arity + offset])
+      cast[toCastType](table[id][offset])
 
     result[^1] = newStmtList(body, theCall)
 
@@ -140,8 +168,7 @@ proc genProc(typ, traitType, name, table: Nimnode, offset: var int, arity: int):
   else:
     error("Unexpected type", typ)
 
-
-macro genProcs(trait: Traitor, table: seq[pointer]): untyped =
+macro genProcs(trait: Traitor, table: typed): untyped =
   var tupl = trait.getTypeInst[^1].getTypeImpl()
   if tupl.kind != nnkDistinctTy:
     error("Trait is not a distinct tuple", tupl)
@@ -199,21 +226,20 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     when has:
       doError("Trait named '" & $trait & "' was already implemented at: " & implementedTraits[ind][1].format, info)
     addTrait(trait, instantiationInfo(fullpaths = true))
-  var traitVtable: seq[pointer]
-  var counter {.compileTime, used.} = 0u16
+  var traitVtable: seq[emitTupleType trait]
 
   proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
-    var id {.global, used.} = 0u16
+    var id {.global.} = 0
     const errors = pointerProcError(trait, T)
 
-    when errors.len > 0:
+    when errors.len > 0 and false:
       doError(
           "'$#' failed to match the trait '$#' it does not implement the following procedure(s):\n$#" %
           [$T, $trait, errors], instantiationInfo(fullpaths = true))
     else:
-      for name, field in default(trait).distinctBase().fieldPairs:
-        traitVtable.add emitPointerProc(name, field, T)
-      id = uint16 traitVtable.high div trait.getTraitImpls()
+      once:
+        id = traitVtable.len
+        traitVtable.add emitPointerProc(trait, T)
 
       TypedTraitor[T, trait](id: id, data: val)
 

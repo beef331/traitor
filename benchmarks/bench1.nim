@@ -77,6 +77,7 @@ type
     data: int
     otherData: float
     othererData: string
+    hmm:float
     huh: string
 
   Thinger = distinct tuple[doThing: proc(_: var Atom) {.nimcall.}]
