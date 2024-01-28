@@ -68,18 +68,6 @@ proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
   ## Converts `tratr` to `TypedTrait[T, Traits]` then access `data`
   TypedTraitor[T, Traits](tratr).data
 
-proc removeAtom(stmt, typ: NimNode): bool =
-  for i, node in stmt:
-    case node.kind
-    of nnkSym:
-      if node == bindSym"Atom":
-        stmt[i] = typ # No early return other branches might have `Atom`
-        result = true
-      elif node.symKind == nskParam:
-        stmt[i] = ident $node
-    else:
-      result = result or removeAtom(node, typ)
-
 proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
   let procType = origType.getTypeInst[0].copyNimTree
   result = genast():
@@ -90,8 +78,7 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
     traitType = nnkBracketExpr.newTree(bindSym"Traitor", origTraitType)
     typedTrait = nnkBracketExpr.newTree(bindSym"TypedTraitor", instType, origTraitType)
 
-  if not procType[0].eqIdent"void":
-    result.params[0] = procType[0]
+  result.params[0] = procType[0]
 
   for i, def in procType[1..^1]:
     let arg = genSym(nskParam, "param" & $i)
@@ -99,7 +86,7 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
 
     if i == 0:
       theTyp = traitType
-      call.add nnkDotExpr.newTree(newStmtList(nnkCall.newTree(typedTrait, arg)), ident"data")
+      call.add nnkDotExpr.newTree(nnkCall.newTree(typedTrait, arg), ident"data")
     else:
       call.add arg
     result.params.add newIdentDefs(arg, theTyp)
@@ -131,10 +118,11 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
     for i, def in typ.params[1..^1]:
       let paramName = genSym(nskParam, "param" & $i)
       var theArgTyp = newStmtList(def[^2])
-      discard theArgTyp.removeAtom(traitType)
+
       if i == 0:
         atomParam = paramName
         theArgTyp = traitType
+
       result.params.add newIdentDefs(paramName, theArgTyp)
       theCall.add paramName
 
