@@ -194,7 +194,7 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     addTrait(trait, instantiationInfo(fullpaths = true))
 
   proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
-    let vtable {.codegendecl: "static $# $#".} = emitPointerProc(trait, T)
+    let vtable {.global.} = static: emitPointerProc(trait, T)
     TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
 
   genProcs(default(Traitor[trait]))
