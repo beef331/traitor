@@ -39,8 +39,6 @@ macro emitTupleType(trait: typed): untyped =
       for prc in typImpl:
         result.add deAtomProcType(prc, trait)
 
-template indirectIt(desc: typedesc): untyped = typeof(default(desc).typeof().emitTupleType())
-
 type
   ValidTraitor* = concept f ## Forces tuples to only have procs that have `Atom` inside first param
     for field in f.distinctBase().fields:
@@ -54,7 +52,7 @@ type
     f.distinctBase() is tuple
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj
-    vtable*: ptr indirectIt(Traits) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
+    vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
     data*: T
