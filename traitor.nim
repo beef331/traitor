@@ -197,9 +197,6 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     let vtable {.codegendecl: "static $# $#".} = emitPointerProc(trait, T)
     TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
 
-  converter implicitTraitConv[T](val: sink T): Traitor[trait] =
-    toTrait(val, trait)
-
   genProcs(default(Traitor[trait]))
 
 template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =

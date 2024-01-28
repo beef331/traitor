@@ -126,7 +126,7 @@ when isMainModule:
     fs.setPos(0)
     assert fs.read(array[13, char]) == "Hello, World!"
 
-  var strms = [StringStream().toTrait StreamTrait, FileStream.init("/tmp/test2.txt", fmReadWrite)]
+  var strms = [StringStream().toTrait StreamTrait, FileStream.init("/tmp/test2.txt", fmReadWrite).toTrait StreamTrait]
   for strm in strms.mitems:
     discard strm.write "Hello"
     strm.setPos(0)
