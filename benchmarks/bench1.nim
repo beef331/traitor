@@ -90,7 +90,7 @@ template traitDispatch(typ: typedesc) =
   if true:
     var objData = newSeq[Traitor[Thinger]](collSize)
     for x in objData.mitems:
-      x = default(typ).toTrait Thinger
+      x = default(typ)
     timeit $typ & " Traitor", iterations:
       for x in objData.mitems:
         doThing(x)
@@ -114,15 +114,15 @@ if true:
   for i, x in objData.mPairs:
     case i mod 5
     of 0:
-      x = Obj1().toTrait Thinger
+      x = Obj1()
     of 1:
-      x = Obj2().toTrait Thinger
+      x = Obj2()
     of 2:
-      x = Obj3().toTrait Thinger
+      x = Obj3()
     of 3:
-      x = Obj4().toTrait Thinger
+      x = Obj4()
     else:
-      x = Obj5().toTrait Thinger
+      x = Obj5()
   timeit "All Traitor Dispatch", iterations:
     for x in objData.mitems:
       doThing(x)
