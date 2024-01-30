@@ -1,5 +1,3 @@
-import benchy
-
 type
   MyObject = ref object of RootObj
     data: int
@@ -18,42 +16,8 @@ method doThing(obj: ChildChild) = obj.data += 1
 method doThing(obj: ChildChildChild) = obj.data += 1
 method doThing(obj: ChildChildChildChild) = obj.data += 1
 
-const
-  iterations {.intdefine.} = 100
-  collSize {.intDefine.} = 1500000
+const collSize {.intDefine.} = 1500000
 
-template inheritanceBench(typ: typedesc) =
-  if true:
-    var objData = newSeq[typ](collSize)
-    for x in objData.mitems:
-      new x
-    timeit $typ & " Nim Method", iterations:
-      for x in objData:
-        doThing(x)
-
-inheritanceBench MyObject
-inheritanceBench Child
-inheritanceBench ChildChild
-inheritanceBench ChildChildChild
-inheritanceBench ChildChildChildChild
-
-if true:
-  var objData = newSeq[MyObject](collSize)
-  for i, x in objData.mPairs:
-    case i mod 5
-    of 0:
-      x = MyObject()
-    of 1:
-      x = Child()
-    of 2:
-      x = ChildChild()
-    of 3:
-      x = ChildChildChild()
-    else:
-      x = ChildChildChildChild()
-  timeit "All Nim Method", iterations:
-    for x in objData:
-      doThing(x)
 
 import ../traitor
 
@@ -83,54 +47,146 @@ type
   Thinger = distinct tuple[doThing: proc(_: var Atom) {.nimcall.}]
 
 proc doThing[T: Obj1 or Obj2 or Obj3 or Obj4 or Obj5](obj: var T) = obj.data += 1
-
 implTrait Thinger
 
-template traitDispatch(typ: typedesc) =
-  if true:
-    var objData = newSeq[Traitor[Thinger]](collSize)
-    for x in objData.mitems:
-      x = default(typ).toTrait Thinger
-    timeit $typ & " Traitor", iterations:
-      for x in objData.mitems:
-        doThing(x)
+import criterion
+var cfg = newDefaultConfig()
 
-template staticDispatch(typ: typedesc) =
-  if true:
-    var objData = newSeq[typ](collSize)
-    timeit $typ & " static dispatch", iterations:
-      for x in objData.mitems:
-        doThing(x)
-
-traitDispatch Obj1
-traitDispatch Obj2
-traitDispatch Obj3
-traitDispatch Obj4
-traitDispatch Obj5
-
-
-if true:
-  var objData = newSeq[Traitor[Thinger]](collSize)
-  for i, x in objData.mPairs:
-    case i mod 5
-    of 0:
-      x = Obj1().toTrait Thinger
-    of 1:
-      x = Obj2().toTrait Thinger
-    of 2:
-      x = Obj3().toTrait Thinger
-    of 3:
-      x = Obj4().toTrait Thinger
+when defined(useCriterion):
+  proc `$`(thing: MyObject): string =
+    if thing of ChildChildChildChild:
+      $ChildChildChildChild
+    elif thing of ChildChildChild:
+      $ChildChildChild
+    elif thing of ChildChild:
+      $ChildChild
+    elif thing of Child:
+      $Child
     else:
-      x = Obj5().toTrait Thinger
-  timeit "All Traitor Dispatch", iterations:
-    for x in objData.mitems:
-      doThing(x)
+      $MyObject
+
+  proc `$`(thing: Traitor[Thinger]): string =
+    if thing of TypedTraitor[Obj1, Thinger]:
+      $Obj1
+    elif thing of TypedTraitor[Obj2, Thinger]:
+      $Obj2
+    elif thing of TypedTraitor[Obj3, Thinger]:
+      $Obj3
+    elif thing of TypedTraitor[Obj4, Thinger]:
+      $Obj4
+    else:
+      $Obj5
+
+
+  benchmark cfg:
+    proc methodDispatch(obj: MyObject) {.measure: [MyObject(), Child(), ChildChild(), ChildChildChild(), ChildChildChildChild()].} =
+      doThing(obj)
+
+    proc allMethodDispatch(val: openArray[MyObject]) {.measure: [[MyObject(), Child(), ChildChild(), ChildChildChild(), ChildChildChildChild()]].} =
+      for item in val:
+        doThing(item)
+
+    proc traitDispatch(val: Traitor[Thinger]) {.measure:[Obj1().toTrait(Thinger), Obj2().toTrait(Thinger), Obj3().toTrait(Thinger), Obj4().toTrait(Thinger), Obj5().toTrait(Thinger)].} =
+      doThing(val)
+
+    proc allTraitDispatch(val: openArray[Traitor[Thinger]]) {.measure:[[Obj1().toTrait(Thinger), Obj2().toTrait(Thinger), Obj3().toTrait(Thinger), Obj4().toTrait(Thinger), Obj5().toTrait(Thinger)]].} =
+      for item in val:
+        doThing(item)
+else:
+
+  when defined(useBenchy):
+    import benchy
+  else:
+    import std/[times, monotimes]
+    template timeit(msg: string, runs: int, body: untyped): untyped =
+      var
+        acc: Duration
+        lowest = Duration.high
+        highest = Duration.low
+
+      for _ in 0..<runs:
+        let start = getMonoTime()
+        body
+        let diff = getMonoTime() - start
+        lowest = min(diff, lowest)
+        highest = max(diff, highest)
+        acc += diff
+
+      echo msg, ":\navg: ", acc div runs, "\nmin: ", lowest, "\nmax: ", highest
+
+
+  proc main() =
+    proc inheritanceDispatch(typ: typedesc) =
+      var objData = newSeq[MyObject](collSize)
+      for item in objData.mitems:
+        item = typ()
+      timeit "Method " & $typ, 100:
+        for item in objData:
+          doThing(item)
+
+    proc traitDispatch(typ: typedesc) =
+      var objData = newSeq[Traitor[Thinger]](collSize)
+      for item in objData.mitems:
+        item = typ().toTrait(Thinger)
+      timeit "Traitor " & $typ, 100:
+        for item in objData:
+          doThing(item)
+
+    proc allMethodDispatch() =
+      var objData = newSeq[MyObject](collSize)
+      for i, item in objData.mpairs:
+        case i mod 5
+        of 0:
+          item = MyObject()
+        of 1:
+          item = Child()
+        of 2:
+          item = ChildChild()
+        of 3:
+          item = ChildChildChild()
+        else:
+          item = ChildChildChild()
+
+      timeit "Method all", 100:
+        for item in objData:
+          doThing(item)
+
+    proc allTraitDispatch() =
+      var objData = newSeq[Traitor[Thinger]](collSize)
+      for i, item in objData.mpairs:
+        case i mod 5
+        of 0:
+          item = Obj1().toTrait Thinger
+        of 1:
+          item = Obj2().toTrait Thinger
+        of 2:
+          item = Obj3().toTrait Thinger
+        of 3:
+          item = Obj4().toTrait Thinger
+        else:
+          item = Obj5().toTrait Thinger
+
+      timeit "Traitor all", 100:
+        for item in objData:
+          doThing(item)
+
+
+    inheritanceDispatch MyObject
+    inheritanceDispatch Child
+    inheritanceDispatch ChildChild
+    inheritanceDispatch ChildChildChild
+    inheritanceDispatch ChildChildChildChild
+    allMethodDispatch()
 
 
 
-staticDispatch Obj1
-staticDispatch Obj2
-staticDispatch Obj3
-staticDispatch Obj4
-staticDispatch Obj5
+    traitDispatch Obj1
+    traitDispatch Obj2
+    traitDispatch Obj3
+    traitDispatch Obj4
+    traitDispatch Obj5
+    allTraitDispatch()
+
+  main()
+
+

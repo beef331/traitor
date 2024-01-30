@@ -71,5 +71,12 @@ elements[2].getData(Radio).x = 0 # It emits a `var T` so it can be mutated
 assert elements[2].getData(Radio).x == 0
 ```
 
+## Additional information
 
+Defining `-d:traitor.fattraitors` allows one to change where the vtable is stored.
+By default there is a vtable generated per trait.
+This flag moves the the vtable to the `Traitor` object which increases memory usage,
+but in limited testing can improve dispatch time through cache optimising.
+
+Defining `-d:traitor.nicenames` can be used to make the generate procedures have nicer names for debugging.
 

@@ -52,7 +52,10 @@ type
     f.distinctBase() is tuple
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj
-    vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
+    when defined(traitor.fattraitors):
+      vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
+    else:
+      vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
     data*: T
@@ -68,8 +71,12 @@ proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
 
 proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
   let procType = origType.getTypeInst[0].copyNimTree
-  result = genast():
-    proc() {.nimcall.} = discard
+  when defined(traitor.nicenames):
+    result = genast(name = ident $name & instType.getTypeImpl[1].repr.multiReplace({"[" : "_", "]": ""})):
+      proc name() {.nimcall.} = discard
+  else:
+    result = genast(name):
+      proc name() {.nimcall.} = discard
 
   let
     call = newCall(name)
@@ -90,6 +97,7 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
     result.params.add newIdentDefs(arg, theTyp)
 
   result[^1] = call
+  result = newStmtList(result, result[0])
 
 macro emitPointerProc(trait, instType: typed): untyped =
   result = nnkTupleConstr.newTree()
@@ -106,8 +114,15 @@ macro emitPointerProc(trait, instType: typed): untyped =
 proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
   case typ.typeKind
   of ntyProc:
-    result = genast(traitType, name = ident $name):
-      proc name*() = discard
+    when defined(traitor.nicenames):
+      result = genast(
+        name = ident $name,
+        exportedName = newLit $name & "_" & traitType.repr.multiReplace({"[": "_", "]": ""})
+      ):
+        proc name*() {.exportc: exportedName.} = discard
+    else:
+      result = genast(name):
+        proc name*() = discard
     result.params[0] = typ.params[0].copyNimTree
     let
       theCall = newCall(newEmptyNode())
@@ -180,10 +195,15 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     addTrait(trait, instantiationInfo(fullpaths = true))
 
   proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
-    let vtable {.global.} = static: emitPointerProc(trait, T)
-    TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
+    when defined(traitor.fattraitors):
+      TypedTraitor[T, trait](vtable: static(emitPointerProc(trait, T)), data: ensureMove val)
+    else:
+      let vtable {.global.} = static(emitPointerProc(trait, T))
+      TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
 
+  {.checks: off.}
   genProcs(default(Traitor[trait]))
+  {.checks:on.}
 
 template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
   ## Emits a converter from `T` to `Traitor[trait]`
