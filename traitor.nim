@@ -75,8 +75,8 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
     result = genast(name = ident $name & instType.getTypeImpl[1].repr.multiReplace({"[" : "_", "]": ""})):
       proc name() {.nimcall.} = discard
   else:
-    result = genast(name):
-      proc name() {.nimcall.} = discard
+    result = genast(name = gensym(nskProc, $name)):
+      proc name() {.nimcall, gensym.} = discard
 
   let
     call = newCall(name)
@@ -121,7 +121,7 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
       ):
         proc name*() {.exportc: exportedName.} = discard
     else:
-      result = genast(name):
+      result = genast(name = ident $name):
         proc name*() = discard
     result.params[0] = typ.params[0].copyNimTree
     let
