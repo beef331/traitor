@@ -65,6 +65,8 @@ type
 
   AnyTraitor*[Traits: ValidTraitor] = StaticTraitor[Traits] or Traitor[Traits] ## Allows writing a procedure that operates on both static and runtime.
 
+  InstInfo = typeof(instantiationInfo())
+
 proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
   ## Converts `tratr` to `TypedTrait[T, Traits]` then access `data`
   TypedTraitor[T, Traits](tratr).data
@@ -163,14 +165,14 @@ macro genProcs(trait: Traitor): untyped =
   for field in tupl:
     result.add genProc(field[1], trait.getTypeInst(), field[0], offset)
 
-macro doError(msg: static string, info: static typeof(instantiationInfo())) =
+macro doError(msg: static string, info: static InstInfo) =
   let node = newStmtList()
   node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
   error(msg, node)
 
-var implementedTraits {.compileTime.}: seq[(NimNode, typeof(instantiationInfo()))]
+var implementedTraits {.compileTime.}: seq[(NimNode, InstInfo)]
 
-macro addTrait(t: typedesc, info: static typeof(instantiationInfo())) =
+macro addTrait(t: typedesc, info: static InstInfo) =
   if t.kind != nnkSym:
     error("Did not use a type alias for the trait tuple.", t)
   implementedTraits.add (t, info)
@@ -181,7 +183,7 @@ macro traitsContain(typ: typedesc): untyped =
     if x[0] == typ:
       return newLit((true, i))
 
-proc format(val: typeof(instantiationInfo())): string =
+proc format(val: InstInfo): string =
   fmt"{val.filename}({val.line}, {val.column})"
 
 template implTrait*(trait: typedesc[ValidTraitor]) =
