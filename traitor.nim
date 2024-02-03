@@ -208,6 +208,7 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
   runnableExamples:
     type MyTrait = distinct tuple[bleh: proc(_: Atom, _: int) {.nimcall.}]
     implTrait MyTrait
+  mixin emitTupleType
   const info {.used.} = instantiationInfo(fullpaths = true)
   static:
     const (has, ind {.used.}) = traitsContain(trait)
