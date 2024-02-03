@@ -21,10 +21,18 @@
   <div class="document" id="documentId">
     <div class="container">
       <h1 class="title">Index</h1>
-      Modules: <a href="traitor.html">traitor</a>.<br/><p /><h2>API symbols</h2>
+      Modules: <a href="traitor.html">traitor</a>, <a href="traitor/streams.html">traitor/streams</a>.<br/><p /><h2>API symbols</h2>
 <dl><dt><a name="AnyTraitor" href="#AnyTraitor"><span>AnyTraitor:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="traitor: type AnyTraitor" href="traitor.html#AnyTraitor">traitor: type AnyTraitor</a></li>
+          </ul></dd>
+<dt><a name="atEnd" href="#atEnd"><span>atEnd:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc atEnd(fs: var FileStream): bool" href="traitor/streams.html#atEnd%2CFileStream">streams: proc atEnd(fs: var FileStream): bool</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc atEnd(ss: StringStream): bool" href="traitor/streams.html#atEnd%2CStringStream">streams: proc atEnd(ss: StringStream): bool</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc atEnd(param0_1543507210: Traitor[StreamTrait]): bool" href="traitor/streams.html#atEnd%2CTraitor%5BStreamTrait%5D">streams: proc atEnd(param0_1543507210: Traitor[StreamTrait]): bool</a></li>
           </ul></dd>
 <dt><a name="Atom" href="#Atom"><span>Atom:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -38,17 +46,97 @@
 <li><a class="reference external"
           data-doc-search-tag="traitor: macro emitTupleType(trait: typed): untyped" href="traitor.html#emitTupleType.m%2Ctyped">traitor: macro emitTupleType(trait: typed): untyped</a></li>
           </ul></dd>
+<dt><a name="FileStream" href="#FileStream"><span>FileStream:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: object FileStream" href="traitor/streams.html#FileStream">streams: object FileStream</a></li>
+          </ul></dd>
 <dt><a name="getData" href="#getData"><span>getData:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="traitor: proc getData[T; Traits](tratr: Traitor[Traits]; __520093759: typedesc[T]): var T" href="traitor.html#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D">traitor: proc getData[T; Traits](tratr: Traitor[Traits]; __520093759: typedesc[T]): var T</a></li>
+          </ul></dd>
+<dt><a name="getPos" href="#getPos"><span>getPos:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc getPos(fs: var FileStream): int" href="traitor/streams.html#getPos%2CFileStream">streams: proc getPos(fs: var FileStream): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc getPos(ss: var StringStream): int" href="traitor/streams.html#getPos%2CStringStream">streams: proc getPos(ss: var StringStream): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc getPos(param0_1543507209: Traitor[StreamTrait]): int" href="traitor/streams.html#getPos%2CTraitor%5BStreamTrait%5D">streams: proc getPos(param0_1543507209: Traitor[StreamTrait]): int</a></li>
           </ul></dd>
 <dt><a name="implTrait" href="#implTrait"><span>implTrait:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="traitor: template implTrait(trait: typedesc[ValidTraitor])" href="traitor.html#implTrait.t%2Ctypedesc%5BValidTraitor%5D">traitor: template implTrait(trait: typedesc[ValidTraitor])</a></li>
           </ul></dd>
+<dt><a name="init" href="#init"><span>init:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc init(__1543507292: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream" href="traitor/streams.html#init%2Ctypedesc%5BFileStream%5D%2Cstring%2CFileMode">streams: proc init(__1543507292: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream</a></li>
+          </ul></dd>
+<dt><a name="onlyPrimitives" href="#onlyPrimitives"><span>onlyPrimitives:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]]): bool" href="traitor/streams.html#onlyPrimitives%2Ctypedesc%5Barray%5BIdx%2CT%5D%5D">streams: proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]]): bool</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc onlyPrimitives(val: typedesc[PrimitiveAtom]): bool" href="traitor/streams.html#onlyPrimitives%2Ctypedesc%5BPrimitiveAtom%5D">streams: proc onlyPrimitives(val: typedesc[PrimitiveAtom]): bool</a></li>
+          </ul></dd>
+<dt><a name="Primitive" href="#Primitive"><span>Primitive:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: type Primitive" href="traitor/streams.html#Primitive">streams: type Primitive</a></li>
+          </ul></dd>
+<dt><a name="PrimitiveAtom" href="#PrimitiveAtom"><span>PrimitiveAtom:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: type PrimitiveAtom" href="traitor/streams.html#PrimitiveAtom">streams: type PrimitiveAtom</a></li>
+          </ul></dd>
+<dt><a name="PrimitiveBase" href="#PrimitiveBase"><span>PrimitiveBase:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: type PrimitiveBase" href="traitor/streams.html#PrimitiveBase">streams: type PrimitiveBase</a></li>
+          </ul></dd>
+<dt><a name="read" href="#read"><span>read:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc read(strm: var Stream; maxAmount: int): string" href="traitor/streams.html#read%2CStream%2Cint">streams: proc read(strm: var Stream; maxAmount: int): string</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc read(strm: var Stream; T: typedesc[Primitive]): T:type" href="traitor/streams.html#read%2CStream%2Ctypedesc%5BPrimitive%5D">streams: proc read(strm: var Stream; T: typedesc[Primitive]): T:type</a></li>
+          </ul></dd>
+<dt><a name="readData" href="#readData"><span>readData:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc readData(fs: var FileStream; dest: pointer; amount: int): int" href="traitor/streams.html#readData%2CFileStream%2Cpointer%2Cint">streams: proc readData(fs: var FileStream; dest: pointer; amount: int): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc readData(ss: var StringStream; dest: pointer; amount: int): int" href="traitor/streams.html#readData%2CStringStream%2Cpointer%2Cint">streams: proc readData(ss: var StringStream; dest: pointer; amount: int): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc readData(param0_1543507201: Traitor[StreamTrait]; param1_1543507202:
+  pointer; param2_1543507203:
+  int): int" href="traitor/streams.html#readData%2CTraitor%5BStreamTrait%5D%2C%2C">streams: proc readData(param0_1543507201: Traitor[StreamTrait]; param1_1543507202:
+  pointer; param2_1543507203:
+  int): int</a></li>
+          </ul></dd>
+<dt><a name="setPos" href="#setPos"><span>setPos:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc setPos(fs: var FileStream; pos: int)" href="traitor/streams.html#setPos%2CFileStream%2Cint">streams: proc setPos(fs: var FileStream; pos: int)</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc setPos(ss: var StringStream; pos: int)" href="traitor/streams.html#setPos%2CStringStream%2Cint">streams: proc setPos(ss: var StringStream; pos: int)</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc setPos(param0_1543507207: Traitor[StreamTrait]; param1_1543507208:
+  int)" href="traitor/streams.html#setPos%2CTraitor%5BStreamTrait%5D%2C">streams: proc setPos(param0_1543507207: Traitor[StreamTrait]; param1_1543507208:
+  int)</a></li>
+          </ul></dd>
 <dt><a name="StaticTraitor" href="#StaticTraitor"><span>StaticTraitor:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
           data-doc-search-tag="traitor: type StaticTraitor" href="traitor.html#StaticTraitor">traitor: type StaticTraitor</a></li>
+          </ul></dd>
+<dt><a name="Stream" href="#Stream"><span>Stream:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: type Stream" href="traitor/streams.html#Stream">streams: type Stream</a></li>
+          </ul></dd>
+<dt><a name="StreamTrait" href="#StreamTrait"><span>StreamTrait:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: type StreamTrait" href="traitor/streams.html#StreamTrait">streams: type StreamTrait</a></li>
+          </ul></dd>
+<dt><a name="StringStream" href="#StringStream"><span>StringStream:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: object StringStream" href="traitor/streams.html#StringStream">streams: object StringStream</a></li>
+          </ul></dd>
+<dt><a name="toTrait" href="#toTrait"><span>toTrait:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc toTrait[T](val`gensym46: sink T; __1543506917: typedesc[StreamTrait]): Traitor[
+    StreamTrait]" href="traitor/streams.html#toTrait%2CsinkT%2C">streams: proc toTrait[T](val`gensym46: sink T; __1543506917: typedesc[StreamTrait]): Traitor[
+    StreamTrait]</a></li>
           </ul></dd>
 <dt><a name="Traitor" href="#Traitor"><span>Traitor:</span></a></dt><dd><ul class="simple">
 <li><a class="reference external"
@@ -62,11 +150,29 @@
 <li><a class="reference external"
           data-doc-search-tag="traitor: type ValidTraitor" href="traitor.html#ValidTraitor">traitor: type ValidTraitor</a></li>
           </ul></dd>
+<dt><a name="write" href="#write"><span>write:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc write(strm: var Stream; data: Primitive): int" href="traitor/streams.html#write%2CStream%2CPrimitive">streams: proc write(strm: var Stream; data: Primitive): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc write(strm: var Stream; data: string): int" href="traitor/streams.html#write%2CStream%2Cstring">streams: proc write(strm: var Stream; data: string): int</a></li>
+          </ul></dd>
+<dt><a name="writeData" href="#writeData"><span>writeData:</span></a></dt><dd><ul class="simple">
+<li><a class="reference external"
+          data-doc-search-tag="streams: proc writeData(fs: var FileStream; data: pointer; amount: int): int" href="traitor/streams.html#writeData%2CFileStream%2Cpointer%2Cint">streams: proc writeData(fs: var FileStream; data: pointer; amount: int): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc writeData(ss: var StringStream; dest: pointer; amount: int): int" href="traitor/streams.html#writeData%2CStringStream%2Cpointer%2Cint">streams: proc writeData(ss: var StringStream; dest: pointer; amount: int): int</a></li>
+          <li><a class="reference external"
+          data-doc-search-tag="streams: proc writeData(param0_1543507204: Traitor[StreamTrait]; param1_1543507205:
+  pointer; param2_1543507206:
+  int): int" href="traitor/streams.html#writeData%2CTraitor%5BStreamTrait%5D%2C%2C">streams: proc writeData(param0_1543507204: Traitor[StreamTrait]; param1_1543507205:
+  pointer; param2_1543507206:
+  int): int</a></li>
+          </ul></dd>
 </dl>
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2024-02-03 21:41:42 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2024-02-03 21:49:27 UTC</small>
       </div>
     </div>
   </div>
