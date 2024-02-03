@@ -231,3 +231,6 @@ template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
   ## Emits a converter from `T` to `Traitor[trait]`
   ## This allows skipping of `val.toTrait(trait)`
   converter convToTrait*(val: sink T): Traitor[trait] {.inject.} = val.toTrait trait
+
+when defined(nimdoc):
+  import traitor/streams
