@@ -26,7 +26,8 @@ proc deAtomProcType(def, trait: NimNode): NimNode =
   result = typImpl.copyNimTree()
   result[0][1][^2] = nnkBracketExpr.newTree(ident"Traitor", trait)
 
-macro emitTupleType(trait: typed): untyped =
+macro emitTupleType*(trait: typed): untyped =
+  ## Exported just to get around generic binding issue
   result = nnkTupleConstr.newTree()
   let impl =
     if trait.typekind == ntyDistinct:
@@ -208,7 +209,6 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
   runnableExamples:
     type MyTrait = distinct tuple[bleh: proc(_: Atom, _: int) {.nimcall.}]
     implTrait MyTrait
-  mixin emitTupleType
   const info {.used.} = instantiationInfo(fullpaths = true)
   static:
     const (has, ind {.used.}) = traitsContain(trait)
