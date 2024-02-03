@@ -1,10 +1,13 @@
+## This module implements a simple interface over dynamic dispatched traits.
+## It allows one to define the required implementation for a type to match both at runtime and compile time.
+## Enabling the writing of code that does not require inheritance, but still has dynamic dispatch.
+
 import pkg/micros/introspection
 import std/[macros, genasts, strutils, strformat, typetraits, macrocache]
 
-type Atom* = distinct void ##[
-  Default field name to be replaced for all Traits.
-  As it derives from void it never can be instantiated.
-]##
+type Atom* = distinct void ##
+  ## Default field name to be replaced for all Traits.
+  ## As it derives from void it never can be instantiated.
 
 proc atomCount(p: typedesc[proc]): int =
   {.warning[UnsafeDefault]: off.}
@@ -51,13 +54,15 @@ type
           atomCount(typeof(child)) == 1
     f.distinctBase() is tuple
 
-  Traitor*[Traits: ValidTraitor] = ref object of RootObj
+  Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
+    ## Base Trait object used to ecapsulate the `vtable`
     when defined(traitor.fattraitors):
       vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
     else:
       vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
 
-  TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits]
+  TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits] ##
+    ## Typed Trait object has a known data type and can be unpacked
     data*: T
 
   StaticTraitor*[Traits: ValidTraitor] = concept st ## Allows generic dispatch on types that fit traits
@@ -69,6 +74,17 @@ type
 
 proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
   ## Converts `tratr` to `TypedTrait[T, Traits]` then access `data`
+  runnableExamples:
+    type
+      MyTrait = distinct tuple[doThing: proc(_: Atom){.nimcall.}]
+      MyType = object
+        x: int
+    implTrait MyTrait
+    proc doThing(typ: MyType) = discard
+    let traitObj = MyType(x: 100).toTrait MyTrait
+    assert traitObj.getData(MyType) == TypedTraitor[MyType, MyTrait](traitObj).data
+
+
   TypedTraitor[T, Traits](tratr).data
 
 proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
@@ -189,6 +205,9 @@ proc format(val: InstInfo): string =
 template implTrait*(trait: typedesc[ValidTraitor]) =
   ## Emits the `vtable` for the given `trait` and a procedure for types to convert to `trait`.
   ## It is checked that `trait` is only implemented once so repeated calls error.
+  runnableExamples:
+    type MyTrait = distinct tuple[bleh: proc(_: Atom, _: int) {.nimcall.}]
+    implTrait MyTrait
   const info {.used.} = instantiationInfo(fullpaths = true)
   static:
     const (has, ind {.used.}) = traitsContain(trait)

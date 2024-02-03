@@ -1,3 +1,43 @@
+## A basic `std/streams` like API built using `Traitor` instead of OOP.
+
+runnableExamples:
+  ## Static dispatched API
+  var ss = StringStream(data: "Hello")
+  check ss.read(array[5, char]) == "Hello"
+  ss.setPos(0)
+  check ss.read(5) == "Hello"
+  discard ss.write(", World!")
+  ss.setPos(0)
+  check ss.read(array[13, char]) == "Hello, World!"
+  ss.setPos(0)
+  check ss.read(array[13, char]) == "Hello, World!"
+
+  var fs = FileStream.init("/tmp/test.txt", fmReadWrite)
+  discard fs.write"Hello"
+  fs.setPos(0)
+  check fs.read(array[5, char]) == "Hello"
+  fs.setPos(0)
+  check fs.read(5) == "Hello"
+  discard fs.write(", World!")
+  fs.setPos(0)
+  check fs.read(array[13, char]) == "Hello, World!"
+  fs.setPos(0)
+  check fs.read(array[13, char]) == "Hello, World!"
+
+  ## Dynamically dispatched API
+  var strms = [StringStream().toTrait StreamTrait, FileStream.init("/tmp/test2.txt", fmReadWrite).toTrait StreamTrait]
+  for strm in strms.mitems:
+    discard strm.write "Hello"
+    strm.setPos(0)
+    check strm.read(array[5, char]) == "Hello"
+    strm.setPos(0)
+    check strm.read(5) == "Hello"
+    discard strm.write(", World!")
+    strm.setPos(0)
+    check strm.read(array[13, char]) == "Hello, World!"
+    strm.setPos(0)
+    check strm.read(array[13, char]) == "Hello, World!"
+
 import ../traitor
 import std/typetraits
 
@@ -8,46 +48,57 @@ type
     setPos: proc(_: var Atom, pos: int) {.nimcall.},
     getPos: proc(_: Atom): int {.nimcall.},
     atEnd: proc(_: Atom): bool {.nimcall.}
-  ]
-  Stream* = AnyTraitor[StreamTrait]
+  ] ## Any stream must match this trait to be used by this API.
+  Stream* = AnyTraitor[StreamTrait] ##
+    ## Allows static dispatch where possible, but also dynamic dispatch when converted to a `Traitor[Stream]`
 
-  PrimitiveBase = concept pb
+  PrimitiveBase* = concept pb
     pb.distinctBase is PrimitiveAtom
-  PrimitiveAtom = SomeOrdinal or SomeFloat or enum or bool or char or PrimitiveBase or set
+  PrimitiveAtom* = SomeOrdinal or SomeFloat or enum or bool or char or PrimitiveBase or set ##
+    ## Built in value types that can be copied by memory
 
-proc onlyPrimitives(val: typedesc[PrimitiveAtom]): bool = true
+proc onlyPrimitives*(val: typedesc[PrimitiveAtom]): bool =
+  ## All PrimitiveAtoms are safe to stream directly.
+  true
 
-proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]]): bool =
+proc onlyPrimitives*[Idx, T](val: typedesc[array[Idx, T]]): bool =
+  ## Procedure to ensure `array`s only are made of prototypes
   onlyPrimitives(T)
 
 proc onlyPrimitives(obj: typedesc[object or tuple]): bool =
+  ## Procedure to ensure `object`s only are made of prototypes
   for x in default(obj).fields:
     when not onlyPrimitives(typeof(x)):
       return false
   true
 
 type
-  Primitive* = concept type P
+  Primitive* = concept type P ## Any type that is `onlyPrimitives(T) is true`
     onlyPrimitives(P)
 
 implTrait StreamTrait
 
 proc read*(strm: var Stream, T: typedesc[Primitive]): T =
+  ## Reads the exact amount from `strm`
+  ## Raises if it fails to read fully
   mixin readData
   let read = strm.readData(result.addr, sizeof(T))
   if read != sizeof(T):
     raise newException(ValueError, "Did not fully read data, only read: " & $read)
 
 proc read*(strm: var Stream, maxAmount: int): string =
+  ## Reads upto `maxAmount` from `strm`
   mixin readData
   result = newString(maxAmount)
   result.setLen(strm.readData(result[0].addr, maxAmount))
 
 proc write*(strm: var Stream, data: Primitive): int =
+  ## Writes `data` to `strm`
   mixin writeData
   strm.writeData(data.addr, sizeof(data))
 
 proc write*(strm: var Stream, data: string): int =
+  ## Overload for `string` that writes `data`'s data to `strm`
   mixin writeData
   strm.writeData(data[0].addr, data.len)
 
