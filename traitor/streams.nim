@@ -3,40 +3,40 @@
 runnableExamples:
   ## Static dispatched API
   var ss = StringStream(data: "Hello")
-  check ss.read(array[5, char]) == "Hello"
+  assert ss.read(array[5, char]) == "Hello"
   ss.setPos(0)
-  check ss.read(5) == "Hello"
+  assert ss.read(5) == "Hello"
   discard ss.write(", World!")
   ss.setPos(0)
-  check ss.read(array[13, char]) == "Hello, World!"
+  assert ss.read(array[13, char]) == "Hello, World!"
   ss.setPos(0)
-  check ss.read(array[13, char]) == "Hello, World!"
+  assert ss.read(array[13, char]) == "Hello, World!"
 
   var fs = FileStream.init("/tmp/test.txt", fmReadWrite)
   discard fs.write"Hello"
   fs.setPos(0)
-  check fs.read(array[5, char]) == "Hello"
+  assert fs.read(array[5, char]) == "Hello"
   fs.setPos(0)
-  check fs.read(5) == "Hello"
+  assert fs.read(5) == "Hello"
   discard fs.write(", World!")
   fs.setPos(0)
-  check fs.read(array[13, char]) == "Hello, World!"
+  assert fs.read(array[13, char]) == "Hello, World!"
   fs.setPos(0)
-  check fs.read(array[13, char]) == "Hello, World!"
+  assert fs.read(array[13, char]) == "Hello, World!"
 
   ## Dynamically dispatched API
   var strms = [StringStream().toTrait StreamTrait, FileStream.init("/tmp/test2.txt", fmReadWrite).toTrait StreamTrait]
   for strm in strms.mitems:
     discard strm.write "Hello"
     strm.setPos(0)
-    check strm.read(array[5, char]) == "Hello"
+    assert strm.read(array[5, char]) == "Hello"
     strm.setPos(0)
-    check strm.read(5) == "Hello"
+    assert strm.read(5) == "Hello"
     discard strm.write(", World!")
     strm.setPos(0)
-    check strm.read(array[13, char]) == "Hello, World!"
+    assert strm.read(array[13, char]) == "Hello, World!"
     strm.setPos(0)
-    check strm.read(array[13, char]) == "Hello, World!"
+    assert strm.read(array[13, char]) == "Hello, World!"
 
 import ../traitor
 import std/typetraits
