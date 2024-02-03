@@ -2,6 +2,8 @@
 
 A trait library made from bordem.
 
+[Docs](http://www.jasonbeetham.com/traitor/)
+
 ## What does it do?!
 
 Traitor allows one to use to use tuples to describe interfaces that can ensure types implement procedures for runtime dispatch.

@@ -2,6 +2,15 @@
 ## It allows one to define the required implementation for a type to match both at runtime and compile time.
 ## Enabling the writing of code that does not require inheritance, but still has dynamic dispatch.
 
+
+## Defining `-d:traitor.fattraitors` allows one to change where the vtable is stored.
+## By default there is a vtable generated per trait.
+## This flag moves the the vtable to the `Traitor` object which increases memory usage,
+## but in limited testing can improve dispatch time through cache optimising.
+
+## Defining `-d:traitor.nicenames` can be used to make the generate procedures have nicer names for debugging.
+
+
 import pkg/micros/introspection
 import std/[macros, genasts, strutils, strformat, typetraits, macrocache]
 
