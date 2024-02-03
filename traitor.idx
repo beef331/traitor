@@ -9,19 +9,3 @@ nim	AnyTraitor	traitor.html#AnyTraitor	type AnyTraitor		72
 nim	getData	traitor.html#getData,Traitor[Traits],typedesc[T]	proc getData[T; Traits](tratr: Traitor[Traits]; __520093759: typedesc[T]): var T		76
 nim	implTrait	traitor.html#implTrait.t,typedesc[ValidTraitor]	template implTrait(trait: typedesc[ValidTraitor])		206
 nim	emitConverter	traitor.html#emitConverter.t,typedesc,typedesc[ValidTraitor]	template emitConverter(T: typedesc; trait: typedesc[ValidTraitor])		230
-nim	toTrait	traitor.html#toTrait,sinkT,	proc toTrait[T](val`gensym35: sink T; __520094302: typedesc[MyTrait]): Traitor[\n    MyTrait]		219
-nim	doThing	traitor.html#doThing,Traitor[MyTrait]	proc doThing(param0_520096512: Traitor[MyTrait])		89
-nim	doThing	traitor.html#doThing,Traitor[MyTrait],	proc doThing(param0_520096513: Traitor[MyTrait]; param1_520096514:\n  int)		89
-nim	doOtherThing	traitor.html#doOtherThing,Traitor[MyTrait],	proc doOtherThing(param0_520096515: Traitor[MyTrait]; param1_520096516:\n  float)		89
-nim	`$`	traitor.html#$,Traitor[MyTrait]	proc `$`(param0_520096517: Traitor[MyTrait]): string		227
-nim	toTrait	traitor.html#toTrait,sinkT,_2	proc toTrait[T](val`gensym82: sink T; __520096639: typedesc[MyOtherTrait]): Traitor[\n    MyOtherTrait]		219
-nim	doThing	traitor.html#doThing,Traitor[MyOtherTrait]	proc doThing(param0_520097380: Traitor[MyOtherTrait])		89
-nim	doOtherThing	traitor.html#doOtherThing,Traitor[MyOtherTrait],	proc doOtherThing(param0_520097381: Traitor[MyOtherTrait]; param1_520097382:\n  string)		227
-nim	convToTrait	traitor.html#convToTrait.c,sinkint	converter convToTrait(val`gensym123: sink int): Traitor[MyTrait]		257
-nim	convToTrait	traitor.html#convToTrait.c,sinkint_2	converter convToTrait(val`gensym158: sink int): Traitor[MyOtherTrait]		258
-nim	convToTrait	traitor.html#convToTrait.c,sinkfloat	converter convToTrait(val`gensym195: sink float): Traitor[MyTrait]		273
-nim	convToTrait	traitor.html#convToTrait.c,sinkfloat_2	converter convToTrait(val`gensym230: sink float): Traitor[MyOtherTrait]		274
-nimgrp	totrait	traitor.html#toTrait-procs-all	proc		219
-nimgrp	dootherthing	traitor.html#doOtherThing-procs-all	proc		89
-nimgrp	dothing	traitor.html#doThing-procs-all	proc		89
-nimgrp	convtotrait	traitor.html#convToTrait-converters-all	converter		233
