@@ -147,7 +147,7 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
         proc name*() {.exportc: exportedName.} = discard
     else:
       result = genast(name = ident $name, hash = traitType[^1].signatureHash):
-        proc name*() {.importc: "$1" & hash, nodecl, raises: [Exception].}
+        proc name*() {.importc: "$1" & hash, raises: [Exception].}
 
 
     result.params[0] = typ.params[0].copyNimTree
