@@ -38,3 +38,6 @@ suite "Streams":
       check strm.read(array[13, char]) == "Hello, World!"
       strm.setPos(0)
       check strm.read(array[13, char]) == "Hello, World!"
+
+
+implTraitProcs()

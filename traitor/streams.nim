@@ -39,6 +39,7 @@ runnableExamples:
     assert strm.read(array[13, char]) == "Hello, World!"
 
 import ../traitor
+export implTraitProcs
 import std/typetraits
 
 type
@@ -151,3 +152,4 @@ proc atEnd*(fs: var FileStream): bool = fs.file.endOfFile()
 
 proc setPos*(fs: var FileStream, pos: int) = fs.file.setFilePos(pos)
 proc getPos*(fs: var FileStream): int = int fs.file.getFilePos()
+

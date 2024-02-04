@@ -64,12 +64,9 @@ type
           atomCount(typeof(child)) == 1
     f.distinctBase() is tuple
 
-  Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
+  Traitor*[Traits: ValidTraitor] {.pure, inheritable.} = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
-    when defined(traitor.fattraitors):
-      vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
-    else:
-      vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
+    id*: int
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits] ##
     ## Typed Trait object has a known data type and can be unpacked
@@ -149,28 +146,21 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
       ):
         proc name*() {.exportc: exportedName.} = discard
     else:
-      result = genast(name = ident $name):
-        proc name*() = discard
+      result = genast(name = ident $name, hash = traitType[^1].signatureHash):
+        proc name*() {.importc: "$1" & hash, nodecl.}
+
+
     result.params[0] = typ.params[0].copyNimTree
-    let
-      theCall = newCall(newEmptyNode())
-      body = newStmtList()
-    var atomParam: NimNode
+
     for i, def in typ.params[1..^1]:
       let paramName = genSym(nskParam, "param" & $i)
       var theArgTyp = newStmtList(def[^2])
 
       if i == 0:
-        atomParam = paramName
         theArgTyp = traitType
 
       result.params.add newIdentDefs(paramName, theArgTyp)
-      theCall.add paramName
 
-    theCall[0] = genast(offset, atomParam):
-      atomParam.vtable[offset]
-
-    result[^1] = newStmtList(body, theCall)
     inc offset
 
   of ntyTuple:
@@ -212,6 +202,92 @@ macro traitsContain(typ: typedesc): untyped =
 proc format(val: InstInfo): string =
   fmt"{val.filename}({val.line}, {val.column})"
 
+const traitTable = CacheSeq"TraitObjs" # (Trait, Type,....)
+
+macro addTraitType(trait, typ: typedesc, table: typed): untyped =
+  let
+    typ = typ.getTypeInst()[^1]
+    trait = trait.getTypeInst()[^1]
+  for entry in traitTable:
+    if entry[0] == trait:
+
+      for i in 0..<entry.len - 1:
+        if entry[i + 1][0] == typ:
+          return newLit i
+
+      entry.add newStmtList(typ, table)
+      return newLit entry.len - 2
+
+
+  traitTable.add newStmtList(trait, newStmtList(typ, table))
+  return newLit(0)
+
+
+proc generateTraitLogic(procTyp, name, entry: NimNode, offset: var int): NimNode =
+  let traitType = entry[0]
+  case procTyp.typeKind
+  of ntyProc:
+    result = genast(exportedName = $name & traitType.signatureHash):
+      proc traitorDummy*() {.gensym, exportc: exportedName.} = discard
+
+
+    result.params[0] = procTyp.params[0].copyNimTree
+
+    var
+      traitParam: NimNode
+      theCall = nnkCall.newTree(newEmptyNode())
+
+
+    for i, def in procTyp.params[1..^1]:
+      let paramName = genSym(nskParam, "param" & $i)
+      var theArgTyp = newStmtList(def[^2])
+
+      if i == 0:
+        traitParam = paramName
+        theArgTyp = nnkBracketExpr.newTree(bindSym"Traitor", traitType)
+
+      result.params.add newIdentDefs(paramName, theArgTyp)
+      theCall.add paramName
+
+    let
+      arrName = genSym(nskConst, "procArr")
+      arr = nnkBracket.newTree()
+
+    for i, typ in entry[1..^1]:
+      arr.add typ[1][offset]
+    theCall[0] = genast(arrName, offset, traitParam):
+      arrName[traitParam.id]
+    result[^1] = genAst(arrName, arr, theCall):
+      const arrName = arr
+      theCall
+
+    inc offset
+
+  of ntyTuple:
+    result = newStmtList()
+    for child in procTyp:
+      result.add generateTraitLogic(child, traitType, name, offset)
+  else:
+    error("Unexpected type", procTyp)
+
+
+proc generateTraitLogic(entry: NimNode): NimNode =
+  var tupl = entry[0].getTypeInst.getImpl()[^1]
+  if tupl.kind != nnkDistinctTy:
+    error("Trait is not a distinct tuple", tupl)
+  tupl = tupl[0]
+
+  result = newStmtList()
+  var offset = 0
+  for field in tupl:
+    result.add generateTraitLogic(field[1], field[0], entry, offset)
+
+macro implTraitProcs*(): untyped =
+  result = newStmtList()
+  for entry in traitTable:
+    result.add generateTraitLogic(entry)
+  echo result.repr
+
 template implTrait*(trait: typedesc[ValidTraitor]) =
   ## Emits the `vtable` for the given `trait` and a procedure for types to convert to `trait`.
   ## It is checked that `trait` is only implemented once so repeated calls error.
@@ -226,15 +302,10 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     addTrait(trait, instantiationInfo(fullpaths = true))
 
   proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
-    when defined(traitor.fattraitors):
-      TypedTraitor[T, trait](vtable: static(emitPointerProc(trait, T)), data: ensureMove val)
-    else:
-      let vtable {.global.} = static(emitPointerProc(trait, T))
-      TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
+    discard addTraitType(trait, T, emitPointerProc(trait, T))
+    TypedTraitor[T, trait](data: ensureMove val)
 
-  {.checks: off.}
   genProcs(default(Traitor[trait]))
-  {.checks:on.}
 
 template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
   ## Emits a converter from `T` to `Traitor[trait]`

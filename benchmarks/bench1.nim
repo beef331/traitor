@@ -190,3 +190,4 @@ else:
   main()
 
 
+implTraitProcs()
