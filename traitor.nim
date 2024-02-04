@@ -147,7 +147,7 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
         proc name*() {.exportc: exportedName.} = discard
     else:
       result = genast(name = ident $name, hash = traitType[^1].signatureHash):
-        proc name*() {.importc: "$1" & hash, nodecl.}
+        proc name*() {.importc: "$1" & hash, nodecl, raises: [Exception].}
 
 
     result.params[0] = typ.params[0].copyNimTree
@@ -249,17 +249,23 @@ proc generateTraitLogic(procTyp, name, entry: NimNode, offset: var int): NimNode
       result.params.add newIdentDefs(paramName, theArgTyp)
       theCall.add paramName
 
-    let
-      arrName = genSym(nskConst, "procArr")
-      arr = nnkBracket.newTree()
+    result[^1] = nnkCaseStmt.newTree:
+      genast(traitParam, entryCount = entry.len - 2):
+        range[0..entryCount](traitParam.id)
 
-    for i, typ in entry[1..^1]:
-      arr.add typ[1][offset]
-    theCall[0] = genast(arrName, offset, traitParam):
-      arrName[traitParam.id]
-    result[^1] = genAst(arrName, arr, theCall):
-      const arrName = arr
-      theCall
+    for i in 1..<entry.len:
+      let
+        thisEntry = entry[i]
+        thisVtable = thisEntry[1]
+        id = i - 1
+        theCall = theCall.copyNimTree()
+        theTyp = thisVtable[offset][0][^1][1][0][0][0][0] # We want the parameter type of the `Traitor`
+      theCall[0] = thisVtable[offset][0][^1][0] # proc(...) = call(...) we want call
+      theCall[1] = genast(theTyp, traitParam):
+        theTyp(traitParam).data
+
+      result[^1].add nnkOfBranch.newTree(newLit id, theCall)
+
 
     inc offset
 
