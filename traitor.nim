@@ -71,7 +71,7 @@ type
     else:
       vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
 
-  TypedTraitor*[T; Traits: ValidTraitor] {.final.} = ref object of Traitor[Traits] ##
+  TypedTraitor*[T; Traits: ValidTraitor] {.final, acyclic.} = ref object of Traitor[Traits] ##
     ## Typed Trait object has a known data type and can be unpacked
     data*: T
 
@@ -127,17 +127,43 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
   result[^1] = call
   result = newStmtList(result, result[0])
 
-macro emitPointerProc(trait, instType: typed): untyped =
-  result = nnkTupleConstr.newTree()
-  let impl = trait.getImpl[^1][0]
-  for def in impl:
-    let defImpl = def[^2].getTypeInst
-    case defImpl.typeKind
-    of ntyProc:
-      result.add genPointerProc(def[0], def[^2], instType, trait)
+macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped =
+  result =
+    if err:
+      nnkBracket.newTree()
     else:
-      for prc in defImpl:
-        result.add genPointerProc(def[0], prc, instType, trait)
+      nnkTupleConstr.newTree()
+  let impl = trait.getImpl[^1][0]
+  if err:
+    for def in impl:
+      let defImpl = def[^2].getTypeInst
+      case defImpl.typeKind
+      of ntyProc:
+        let prc = genPointerProc(def[0], def[^2], instType, trait)
+        result.add:
+          genast(prc, typ = def[^2]):
+            when not compiles(prc):
+              astToStr(typ)
+            else:
+              ""
+      else:
+        for prc in defImpl:
+          let genProc = genPointerProc(def[0], prc, instType, trait)
+          result.add:
+            genast(genProc, prc):
+              when not compiles(genProc):
+                astToStr(prc)
+              else:
+                ""
+  else:
+    for def in impl:
+      let defImpl = def[^2].getTypeInst
+      case defImpl.typeKind
+      of ntyProc:
+        result.add genPointerProc(def[0], def[^2], instType, trait)
+      else:
+        for prc in defImpl:
+          result.add genPointerProc(def[0], prc, instType, trait)
 
 proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
   case typ.typeKind
@@ -212,6 +238,8 @@ macro traitsContain(typ: typedesc): untyped =
 proc format(val: InstInfo): string =
   fmt"{val.filename}({val.line}, {val.column})"
 
+const errorMessage = "'$#' failed to match '$#' due to missing the following procedure(s):\n"
+
 template implTrait*(trait: typedesc[ValidTraitor]) =
   ## Emits the `vtable` for the given `trait` and a procedure for types to convert to `trait`.
   ## It is checked that `trait` is only implemented once so repeated calls error.
@@ -225,12 +253,26 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
       doError("Trait named '" & $trait & "' was already implemented at: " & implementedTraits[ind][1].format, info)
     addTrait(trait, instantiationInfo(fullpaths = true))
 
+  proc errorCheck[T](_: typedesc[trait]): string =
+    const missing = emitPointerProc(trait, T, true)
+    for i, miss in missing:
+      if miss != "":
+        if result.len == 0:
+          result = errorMessage % [$T, $trait]
+        result.add miss
+        if i < missing.high:
+          result.add "\n"
+
   proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
-    when defined(traitor.fattraitors):
-      TypedTraitor[T, trait](vtable: static(emitPointerProc(trait, T)), data: ensureMove val)
+    const missMsg = errorCheck[T](trait)
+    when missMsg.len > 0:
+      doError(missMsg, instantiationInfo(fullPaths = true))
     else:
-      let vtable {.global.} = static(emitPointerProc(trait, T))
-      TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
+      when defined(traitor.fattraitors):
+        TypedTraitor[T, trait](vtable: static(emitPointerProc(trait, T)), data: ensureMove val)
+      else:
+        let vtable {.global.} = static(emitPointerProc(trait, T))
+        TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
 
   {.checks: off.}
   genProcs(default(Traitor[trait]))

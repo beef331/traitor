@@ -1,4 +1,4 @@
-import traitor
+import ../traitor
 type
   Clickable = distinct tuple[ # Always use a distinct tuple interface to make it clean and cause `implTrait` requires it
       over: proc(a: Atom, x, y: int): bool {.nimcall.}, # Notice we use `Atom` as the first parameter and it's always the only `Atom`

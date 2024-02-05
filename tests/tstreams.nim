@@ -1,5 +1,5 @@
 import ../traitor/streams
-import std/unittest
+import balls
 
 suite "Streams":
   test "Static Dispatch":
@@ -26,7 +26,10 @@ suite "Streams":
     check fs.read(array[13, char]) == "Hello, World!"
 
   test "Dynamic Dispatch":
-    var strms = [StringStream().toTrait StreamTrait, FileStream.init("/tmp/test2.txt", fmReadWrite).toTrait StreamTrait]
+    var strms = [
+      StringStream().toTrait StreamTrait,
+      FileStream.init("/tmp/test2.txt", fmReadWrite).toTrait StreamTrait
+    ]
     for strm in strms.mitems:
       discard strm.write "Hello"
       strm.setPos(0)
