@@ -85,7 +85,7 @@
     <summary><a class="reference reference-toplevel" href="#12" id="62">Procs</a></summary>
     <ul class="simple simple-toc-section">
       <ul class="simple nested-toc-section">getData
-  <li><a class="reference" href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D" title="getData[T; Traits](tratr: Traitor[Traits]; __520093759: typedesc[T]): var T">getData[T; Traits](tratr: Traitor[Traits]; __520093759: typedesc[T]): var T</a></li>
+  <li><a class="reference" href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D" title="getData[T; Traits](tratr: Traitor[Traits]; __520093800: typedesc[T]): var T">getData[T; Traits](tratr: Traitor[Traits]; __520093800: typedesc[T]): var T</a></li>
 
 </ul>
 
@@ -227,7 +227,7 @@
   <dl class="item">
     <div id="getData-procs-all">
   <div id="getData,Traitor[Traits],typedesc[T]">
-  <dt><pre><span class="Keyword">proc</span> <a href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D"><span class="Identifier">getData</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">tratr</span><span class="Other">:</span> <a href="traitor.html#Traitor"><span class="Identifier">Traitor</span></a><span class="Other">[</span><span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">;</span> <span class="Operator">__520093759</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Keyword">var</span> <span class="Identifier">T</span></pre></dt>
+  <dt><pre><span class="Keyword">proc</span> <a href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D"><span class="Identifier">getData</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">tratr</span><span class="Other">:</span> <a href="traitor.html#Traitor"><span class="Identifier">Traitor</span></a><span class="Other">[</span><span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">;</span> <span class="Operator">__520093800</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Keyword">var</span> <span class="Identifier">T</span></pre></dt>
   <dd>
     
     Converts <tt class="docutils literal"><span class="pre"><span class="Identifier">tratr</span></span></tt> to <tt class="docutils literal"><span class="pre"><span class="Identifier">TypedTrait</span><span class="Punctuation">[</span><span class="Identifier">T</span><span class="Punctuation">,</span> <span class="Identifier">Traits</span><span class="Punctuation">]</span></span></tt> then access <tt class="docutils literal"><span class="pre"><span class="Identifier">data</span></span></tt>
@@ -240,8 +240,8 @@
 <span class="Keyword">proc</span> <span class="Identifier">doThing</span><span class="Punctuation">(</span><span class="Identifier">typ</span><span class="Punctuation">:</span> <span class="Identifier">MyType</span><span class="Punctuation">)</span> <span class="Operator">=</span> <span class="Keyword">discard</span>
 <span class="Keyword">let</span> <span class="Identifier">traitObj</span> <span class="Operator">=</span> <span class="Identifier">MyType</span><span class="Punctuation">(</span><span class="Identifier">x</span><span class="Punctuation">:</span> <span class="DecNumber">100</span><span class="Punctuation">)</span><span class="Operator">.</span><span class="Identifier">toTrait</span> <span class="Identifier">MyTrait</span>
 <span class="Identifier">assert</span> <span class="Identifier">traitObj</span><span class="Operator">.</span><span class="Identifier">getData</span><span class="Punctuation">(</span><span class="Identifier">MyType</span><span class="Punctuation">)</span> <span class="Operator">==</span> <span class="Identifier">TypedTraitor</span><span class="Punctuation">[</span><span class="Identifier">MyType</span><span class="Punctuation">,</span> <span class="Identifier">MyTrait</span><span class="Punctuation">]</span><span class="Punctuation">(</span><span class="Identifier">traitObj</span><span class="Punctuation">)</span><span class="Operator">.</span><span class="Identifier">data</span></pre>
-    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L85" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L85" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L127" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L127" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -278,8 +278,8 @@
   <dd>
     
     Emits a converter from <tt class="docutils literal"><span class="pre"><span class="Identifier">T</span></span></tt> to <tt class="docutils literal"><span class="pre"><span class="Identifier">Traitor</span><span class="Punctuation">[</span><span class="Identifier">trait</span><span class="Punctuation">]</span></span></tt> This allows skipping of <tt class="docutils literal"><span class="pre"><span class="Identifier">val</span><span class="Operator">.</span><span class="Identifier">toTrait</span><span class="Punctuation">(</span><span class="Identifier">trait</span><span class="Punctuation">)</span></span></tt>
-    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L281" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L281" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L341" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L341" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -294,8 +294,8 @@
 <p><strong class="examples_text">Example:</strong></p>
 <pre class="listing"><span class="Keyword">type</span> <span class="Identifier">MyTrait</span> <span class="Operator">=</span> <span class="Keyword">distinct</span> <span class="Keyword">tuple</span><span class="Punctuation">[</span><span class="Identifier">bleh</span><span class="Punctuation">:</span> <span class="Keyword">proc</span><span class="Punctuation">(</span><span class="Identifier">_</span><span class="Punctuation">:</span> <span class="Identifier">Atom</span><span class="Punctuation">,</span> <span class="Identifier">_</span><span class="Punctuation">:</span> <span class="Identifier">int</span><span class="Punctuation">)</span> <span class="Punctuation">{</span><span class="Operator">.</span><span class="Identifier">nimcall</span><span class="Operator">.</span><span class="Punctuation">}</span><span class="Punctuation">]</span>
 <span class="Identifier">implTrait</span> <span class="Identifier">MyTrait</span></pre>
-    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L243" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L243" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L303" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L303" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -311,7 +311,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2024-02-05 03:46:49 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2024-02-06 22:59:31 UTC</small>
       </div>
     </div>
   </div>
