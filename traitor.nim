@@ -82,6 +82,48 @@ type
 
   InstInfo = typeof(instantiationInfo())
 
+
+macro getIndex(trait, prc: typed, name: static string): untyped =
+  let impl = trait.getTypeImpl[1].getImpl[^1][0]
+  var ind = 0
+  result = nnkWhenStmt.newTree()
+  for def in impl:
+    case def[^2].typeKind
+    of ntyProc:
+      if def[0].eqIdent name:
+        let theType = newCall("typeof", def[^2].deAtomProcType(trait))
+        result.add nnkElifBranch.newTree(
+          infix(prc, "is", theType),
+          newLit ind)
+      inc ind
+
+    of ntyTuple:
+      for traitProc in def[^2]:
+        if def[0].eqIdent name:
+          let theType = newCall("typeof", traitProc.deAtomProcType(trait))
+          result.add nnkElifBranch.newTree(
+            infix(prc, "is", theType),
+            newLit ind)
+        inc ind
+    else:
+      error("Unexpected trait proc", def[^2])
+  result.add:
+    nnkElse.newTree:
+      genAst():
+        {.error: "No proc matches".}
+  if result[0].kind == nnkElse:
+    error("No proc matches name: " & name)
+
+when defined(traitor.fattraitors):
+  proc setProcImpl[T, Trait](traitor: TypedTraitor[T, Trait], name: static string, prc: proc) =
+    traitor.vtable[getIndex(Trait, prc, name)] = prc
+
+  template setProc*[T, Trait](traitor: TypedTraitor[T, Trait], name: untyped, prc: proc) =
+    ## Allows one to override the vtable for a specific instance
+    const theProc = prc
+    traitor.vtable[getIndex(Trait, theProc, astToStr(name))] = theProc
+
+
 proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
   ## Converts `tratr` to `TypedTrait[T, Traits]` then access `data`
   runnableExamples:
@@ -140,18 +182,36 @@ macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped
       case defImpl.typeKind
       of ntyProc:
         let prc = genPointerProc(def[0], def[^2], instType, trait)
+        var
+          defRetType = def[^2][0][0]
+          implRet = prc[0][^1]
+        if defRetType.kind == nnkEmpty:
+          defRetType = ident"void"
+        if implRet.kind == nnkEmpty:
+          implRet = ident"void"
+
         result.add:
-          genast(prc, typ = def[^2]):
-            when not compiles(prc):
+          genast(prc, defRetType, implRet, typ = def[^2]):
+            when not compiles(prc) or (defRetType isnot void and not compiles((let x = implRet))):
               astToStr(typ)
             else:
               ""
       else:
         for prc in defImpl:
-          let genProc = genPointerProc(def[0], prc, instType, trait)
+          let
+            genProc = genPointerProc(def[0], prc, instType, trait)
+
+          var
+            defRetType = prc[^2][0][0]
+            implRet = genProc[0][^1]
+          if defRetType.kind == nnkEmpty:
+            defRetType = ident"void"
+          if implRet.kind == nnkEmpty:
+            implRet = ident"void"
+
           result.add:
-            genast(genProc, prc):
-              when not compiles(genProc):
+            genast(genProc, prc, defRetType, implRet):
+              when not compiles(genProc) or (defRetType isnot void and not compiles((let x = implRet))):
                 astToStr(prc)
               else:
                 ""

@@ -21,7 +21,7 @@ import traitor
 type
   Clickable = distinct tuple[ # Always use a distinct tuple interface to make it clean and cause `implTrait` requires it
       over: proc(a: Atom, x, y: int): bool {.nimcall.}, # Notice we use `Atom` as the first parameter and it's always the only `Atom`
-      onClick: proc(a: Atom) {.nimcall.}]
+      onClick: proc(a: Atom): string {.nimcall.}]
   UnimplementedTrait = distinct tuple[
     overloaded: ( # We can add overloads by using a tuple of procs
       proc(a: var Atom) {.nimcall.},
@@ -39,13 +39,12 @@ implTrait Clickable
 proc over(btn: Button, x, y: int): bool =
   btn.x < x and (btn.x + btn.w) > x and btn.y < y and (btn.y + btn.h) > y
 
-proc onClick(btn: Button) =
-  echo "Clicked a button"
+proc onClick(btn: Button): string = "Clicked a button"
 
 proc over(radio: Radio, x, y: int): bool =
   radio.r >= (abs(radio.x - x) + abs(radio.y - y))
 
-proc onClick(radio: Radio) = echo "Clicked a radio"
+proc onClick(radio: Radio): string = "Clicked a radio"
 
 emitConverter Button, Clickable # Emit a `converter` for `Button` -> `Traitor[Clickable]`
 
@@ -71,6 +70,21 @@ for i, x in elements:
 assert elements[2].getData(Radio) == Radio(x: 30, y: 30, r: 10) # We can use `getData` to extract data
 elements[2].getData(Radio).x = 0 # It emits a `var T` so it can be mutated
 assert elements[2].getData(Radio).x == 0
+
+when defined(traitor.fattraitors): # Fat pointers allow us to set procedures for instances
+  let elem = ClickObj[Button](elements[0])
+  elem.setProc onClick, proc(arg: Traitor[Clickable]): string = "Hmmmm"
+  for i, x in elements:
+    let msg = x.onClick()
+    case i
+    of 0:
+      assert msg == "Hmmmm"
+    of 1:
+      assert msg == "Clicked a button"
+    of 2:
+      assert msg == "Clicked a radio"
+    else:
+      assert false
 ```
 
 ## Additional information
