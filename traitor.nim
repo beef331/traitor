@@ -47,11 +47,16 @@ proc instGenTree(trait: NimNode): NimNode =
       tree.replaceType(param, trait[i + 1])
     tree[0] # Skip distinct
   else:
-    error("Unexpected type", trait)
-    nil
+    trait
 
 macro isGeneric*(t: typedesc): untyped =
-  newLit t.getTypeImpl[1].getImpl[1].kind == nnkGenericParams
+  let t =
+    if t.kind == nnkBracketExpr:
+      t[0]
+    else:
+      t
+  #newLit t.getTypeImpl[1].getImpl[1].kind == nnkGenericParams
+  newLit true
 
 type Atom* = distinct void ##
   ## Default field name to be replaced for all Traits.
@@ -74,11 +79,11 @@ proc deAtomProcType(def, trait: NimNode): NimNode =
   result = typImpl.copyNimTree()
   result[0][1][^2] = nnkBracketExpr.newTree(ident"Traitor", trait)
 
-macro emitTupleType*(trait: typed): untyped =
+macro emitTupleType*(trait: typedesc): untyped =
   ## Exported just to get around generic binding issue
   result = nnkTupleConstr.newTree()
   let impl = trait.instGenTree()
-
+  let trait = trait.getTypeInst[1]
   for def in impl:
     case def[^2].typeKind
     of ntyProc:
@@ -86,6 +91,10 @@ macro emitTupleType*(trait: typed): untyped =
     else:
       for prc in def[^2]:
         result.add deAtomProcType(prc, trait)
+  #when not defined(traitor.fattraitors):
+    #result = nnkPtrTy.newTree(result)
+
+template indirect*(t: typed): untyped = emitTupleType(t)
 
 type
   GenericType* = concept type F ## Cannot instantiate it so it's just checked it's a `type T[...] = distinct tuple`
@@ -106,10 +115,7 @@ type
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
-    when defined(traitor.fattraitors):
-      vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
-    else:
-      vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
+    vtable*: typeof(indirect(emitTupleType(Traits)))
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final, acyclic.} = ref object of Traitor[Traits] ##
     ## Typed Trait object has a known data type and can be unpacked
@@ -275,7 +281,6 @@ macro genProcs(origTrait: typedesc): untyped =
   var offset = 0
   for field in tupl:
     result.add genProc(field[1], origTrait, field[0], offset)
-  echo result.repr
 
 macro doError(msg: static string, info: static InstInfo) =
   let node = newStmtList()
