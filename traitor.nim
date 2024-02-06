@@ -14,6 +14,45 @@
 import pkg/micros/introspection
 import std/[macros, genasts, strutils, strformat, typetraits, macrocache]
 
+proc replaceType(tree, arg, inst: NimNode) =
+  for i, node in tree:
+    if node.eqIdent arg:
+      tree[i] = inst
+    else:
+      replaceType(node, arg, inst)
+
+proc instGenTree(trait: NimNode): NimNode =
+  let trait =
+    case trait.typeKind
+    of ntyGenericInst:
+      trait
+    else:
+      trait.getTypeInst()[1]
+
+  case trait.kind
+  of nnkSym:
+    trait.getImpl()[^1][0]
+  of nnkBracketExpr:
+    let trait =
+      if trait.typeKind == ntyTypeDesc:
+        trait[1]
+      else:
+        trait
+
+    let
+      typImpl = trait[0].getImpl()
+      genParams = typImpl[1]
+      tree = typImpl[^1].copyNimTree()
+    for i, param in genParams:
+      tree.replaceType(param, trait[i + 1])
+    tree[0] # Skip distinct
+  else:
+    error("Unexpected type", trait)
+    nil
+
+macro isGeneric*(t: typedesc): untyped =
+  newLit t.getTypeImpl[1].getImpl[1].kind == nnkGenericParams
+
 type Atom* = distinct void ##
   ## Default field name to be replaced for all Traits.
   ## As it derives from void it never can be instantiated.
@@ -30,7 +69,7 @@ proc deAtomProcType(def, trait: NimNode): NimNode =
     if def.kind == nnkProcTy:
       def
     else:
-      def[^2].getTypeInst
+      def[^2]
 
   result = typImpl.copyNimTree()
   result[0][1][^2] = nnkBracketExpr.newTree(ident"Traitor", trait)
@@ -38,22 +77,21 @@ proc deAtomProcType(def, trait: NimNode): NimNode =
 macro emitTupleType*(trait: typed): untyped =
   ## Exported just to get around generic binding issue
   result = nnkTupleConstr.newTree()
-  let impl =
-    if trait.typekind == ntyDistinct:
-      trait.getImpl()
-    else:
-      trait.getTypeImpl[1].getImpl()
-  for def in impl[^1][0]:
-    let typImpl = def[^2].getTypeInst
-    case typImpl.typeKind
+  let impl = trait.instGenTree()
+
+  for def in impl:
+    case def[^2].typeKind
     of ntyProc:
       result.add deAtomProcType(def, trait)
     else:
-      for prc in typImpl:
+      for prc in def[^2]:
         result.add deAtomProcType(prc, trait)
 
 type
-  ValidTraitor* = concept f ## Forces tuples to only have procs that have `Atom` inside first param
+  GenericType* = concept type F ## Cannot instantiate it so it's just checked it's a `type T[...] = distinct tuple`
+    isGeneric(F)
+
+  TraitType* = concept f ## Forces tuples to only have procs that have `Atom` inside first param
     for field in f.distinctBase().fields:
       when field is (proc):
         field.paramTypeAt(0) is Atom
@@ -63,6 +101,8 @@ type
           child.paramTypeAt(0) is Atom
           atomCount(typeof(child)) == 1
     f.distinctBase() is tuple
+
+  ValidTraitor* = GenericType or TraitType
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
@@ -98,7 +138,8 @@ proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
   TypedTraitor[T, Traits](tratr).data
 
 proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
-  let procType = origType.getTypeInst[0].copyNimTree
+  let procType = origType[0].copyNimTree
+
   when defined(traitor.nicenames):
     result = genast(name = ident $name & instType.getTypeImpl[1].repr.multiReplace({"[" : "_", "]": ""})):
       proc name() {.nimcall.} = discard
@@ -111,11 +152,11 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
     traitType = nnkBracketExpr.newTree(bindSym"Traitor", origTraitType)
     typedTrait = nnkBracketExpr.newTree(bindSym"TypedTraitor", instType, origTraitType)
 
-  result.params[0] = procType[0]
+  result.params[0] = origType[0][0]
 
   for i, def in procType[1..^1]:
     let arg = genSym(nskParam, "param" & $i)
-    var theTyp = newStmtList(def[^2].copyNimTree)
+    var theTyp = def[^2].copyNimTree
 
     if i == 0:
       theTyp = traitType
@@ -128,12 +169,13 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
   result = newStmtList(result, result[0])
 
 macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped =
+  let trait = trait.getTypeInst[^1]
   result =
     if err:
       nnkBracket.newTree()
     else:
       nnkTupleConstr.newTree()
-  let impl = trait.getImpl[^1][0]
+  let impl = trait.instGenTree()
   if err:
     for def in impl:
       let defImpl = def[^2].getTypeInst
@@ -165,9 +207,17 @@ macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped
         for prc in defImpl:
           result.add genPointerProc(def[0], prc, instType, trait)
 
+proc desym(tree: NimNode) =
+  for i, node in tree:
+    if node.kind == nnkSym:
+      tree[i] = ident $node
+    else:
+      desym node
+
 proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
   case typ.typeKind
   of ntyProc:
+    let traitType = traitType.copyNimTree()
     when defined(traitor.nicenames):
       result = genast(
         name = ident $name,
@@ -178,6 +228,14 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
       result = genast(name = ident $name):
         proc name*() = discard
     result.params[0] = typ.params[0].copyNimTree
+    let genParams = traitType[1].getImpl()[1]
+    if genParams.len > 0:
+      result[2] = nnkGenericParams.newNimNode()
+      traitType[1] = nnkBracketExpr.newTree(traitType[1])
+      for typ in genParams:
+        result[2].add newIdentDefs(ident $typ, newEmptyNode())
+        traitType[1].add ident $typ
+
     let
       theCall = newCall(newEmptyNode())
       body = newStmtList()
@@ -206,16 +264,18 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
   else:
     error("Unexpected type", typ)
 
-macro genProcs(trait: Traitor): untyped =
+macro genProcs(origTrait: typedesc): untyped =
+  let trait = origTrait[^1]
   var tupl = trait.getTypeInst[^1].getTypeImpl()
   if tupl.kind != nnkDistinctTy:
     error("Trait is not a distinct tuple", tupl)
-  tupl = tupl[0]
+  tupl = trait.instGenTree()
 
   result = newStmtList()
   var offset = 0
   for field in tupl:
-    result.add genProc(field[1], trait.getTypeInst(), field[0], offset)
+    result.add genProc(field[1], origTrait, field[0], offset)
+  echo result.repr
 
 macro doError(msg: static string, info: static InstInfo) =
   let node = newStmtList()
@@ -252,30 +312,32 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     when has:
       doError("Trait named '" & $trait & "' was already implemented at: " & implementedTraits[ind][1].format, info)
     addTrait(trait, instantiationInfo(fullpaths = true))
-
-  proc errorCheck[T](_: typedesc[trait]): string =
-    const missing = emitPointerProc(trait, T, true)
+  #[
+  proc errorCheck[T; Constraint: trait](traitType: typedesc[Constraint]): string =
+    const missing = emitPointerProc(traitType, T, true)
     for i, miss in missing:
       if miss != "":
         if result.len == 0:
-          result = errorMessage % [$T, $trait]
+          result = errorMessage % [$T, $traitType]
         result.add miss
         if i < missing.high:
           result.add "\n"
-
-  proc toTrait*[T](val: sink T, _: typedesc[trait]): Traitor[trait] =
-    const missMsg = errorCheck[T](trait)
+  ]#
+  proc toTrait*[T; Constraint: trait](val: sink T, traitTyp: typedesc[Constraint]): auto =
+    #[
+    const missMsg = errorCheck[T, traitTyp](traitTyp)
     when missMsg.len > 0:
       doError(missMsg, instantiationInfo(fullPaths = true))
     else:
+    ]#
       when defined(traitor.fattraitors):
-        TypedTraitor[T, trait](vtable: static(emitPointerProc(trait, T)), data: ensureMove val)
+        Traitor[traitTyp](TypedTraitor[T, traitTyp](vtable: static(emitPointerProc(traitTyp, T)), data: ensureMove val))
       else:
-        let vtable {.global.} = static(emitPointerProc(trait, T))
-        TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
+        let vtable {.global.} = static(emitPointerProc(traitTyp, T))
+        Traitor[traitTyp](TypedTraitor[T, traitTyp](vtable: vtable.addr, data: ensureMove val))
 
   {.checks: off.}
-  genProcs(default(Traitor[trait]))
+  genProcs(Traitor[trait])
   {.checks:on.}
 
 template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
