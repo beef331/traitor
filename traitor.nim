@@ -3,12 +3,12 @@
 ## Enabling the writing of code that does not require inheritance, but still has dynamic dispatch.
 
 
-## Defining `-d:traitor.fattraitors` allows one to change where the vtable is stored.
+## Defining `-d:traitorFatPointers` allows one to change where the vtable is stored.
 ## By default there is a vtable generated per trait.
 ## This flag moves the the vtable to the `Traitor` object which increases memory usage,
 ## but in limited testing can improve dispatch time through cache optimising.
 
-## Defining `-d:traitor.nicenames` can be used to make the generate procedures have nicer names for debugging.
+## Defining `-d:traitorNiceNames` can be used to make the generate procedures have nicer names for debugging.
 
 
 import pkg/micros/introspection
@@ -66,7 +66,7 @@ type
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
-    when defined(traitor.fattraitors):
+    when defined(traitorFatPointers):
       vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
     else:
       vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
@@ -114,7 +114,7 @@ macro getIndex(trait, prc: typed, name: static string): untyped =
   if result[0].kind == nnkElse:
     error("No proc matches name: " & name)
 
-when defined(traitor.fattraitors):
+when defined(traitorFatPointers):
   proc setProcImpl[T, Trait](traitor: TypedTraitor[T, Trait], name: static string, prc: proc) =
     traitor.vtable[getIndex(Trait, prc, name)] = prc
 
@@ -141,7 +141,7 @@ proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
 
 proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
   let procType = origType.getTypeInst[0].copyNimTree
-  when defined(traitor.nicenames):
+  when defined(traitorNiceNames):
     result = genast(name = ident $name & instType.getTypeImpl[1].repr.multiReplace({"[" : "_", "]": ""})):
       proc name() {.nimcall.} = discard
   else:
@@ -228,7 +228,7 @@ macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped
 proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
   case typ.typeKind
   of ntyProc:
-    when defined(traitor.nicenames):
+    when defined(traitorNiceNames):
       result = genast(
         name = ident $name,
         exportedName = newLit $name & "_" & traitType.repr.multiReplace({"[": "_", "]": ""})
@@ -328,7 +328,7 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     when missMsg.len > 0:
       doError(missMsg, instantiationInfo(fullPaths = true))
     else:
-      when defined(traitor.fattraitors):
+      when defined(traitorFatPointers):
         TypedTraitor[T, trait](vtable: static(emitPointerProc(trait, T)), data: ensureMove val)
       else:
         let vtable {.global.} = static(emitPointerProc(trait, T))
