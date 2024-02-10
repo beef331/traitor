@@ -1,19 +1,26 @@
 import ../traitor
 import std/macros
-type Generic[X] = distinct tuple[doStuff: proc(_: Atom, val: var X){.nimcall.}]
+import balls
 
 
-proc test[X;Arg: Generic[X]](val: Traitor[Arg]) = echo typeof(val)
-
-test Traitor[Generic[int]]()
+type Generic[X] = distinct tuple[doStuff: proc(_: Atom, val: X): string{.nimcall.}]
 
 implTrait Generic
 
-proc doStuff[T](i: int, val: T) = echo val
+proc doStuff[H](i: int, val: H): string = $val
+proc doStuff[H](i: string, val: H): string = $val
 
-var
-  i = 100
-  s = "hmm"
+static:
+  assert "hello".toTrait(Generic[int]).doStuff(100) == $100
+  assert "oh".toTrait(Generic[int]).doStuff(200) == $200
+  assert 100.toTrait(Generic[int]).doStuff(200) == $200
 
-10.toTrait(Generic[int]).doStuff(i)
-10.toTrait(Generic[string]).doStuff(s)
+  assert "hmm".toTrait(Generic[string]).doStuff("bleh") == "bleh"
+  assert 100.toTrait(Generic[string]).doStuff("what") == "what"
+#[
+suite "Generic Impls":
+  test "doStuff":
+    assert 10.toTrait(Generic[int]).doStuff(100) == $100
+    assert "oh".toTrait(Generic[string]).doStuff("hmm") == "hmm"
+
+]#

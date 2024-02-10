@@ -24,9 +24,7 @@ proc replaceType(tree, arg, inst: NimNode) =
 proc instGenTree(trait: NimNode): NimNode =
   let trait =
     case trait.typeKind
-    of ntyGenericInst:
-      trait
-    of ntyDistinct:
+    of ntyGenericInst, ntyDistinct, ntyGenericBody:
       trait
     else:
       trait.getTypeInst()[1]
@@ -93,8 +91,6 @@ macro emitTupleType*(trait: typedesc): untyped =
     else:
       for prc in def[^2]:
         result.add deAtomProcType(prc, trait)
-  #when not defined(traitor.fattraitors):
-    #result = nnkPtrTy.newTree(result)
 
 type
   GenericType* = concept type F ## Cannot instantiate it so it's just checked it's a `type T[...] = distinct tuple`
@@ -112,7 +108,7 @@ type
     f.distinctBase() is tuple
 
   ValidTraitor* = GenericType or TraitType
-  Dummy[T] = object
+
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
     vtable*: typeof(emitTupleType(typeof(Traits)))
@@ -235,6 +231,7 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
       result = genast(name = ident $name):
         proc name*() = discard
     result.params[0] = typ.params[0].copyNimTree
+
     let genParams = traitType[1].getImpl()[1]
     if genParams.len > 0:
       result[2] = nnkGenericParams.newNimNode()
@@ -265,6 +262,7 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
       atomParam.vtable[offset]
 
     result[^1] = newStmtList(body, theCall)
+
     inc offset
 
   of ntyTuple:
@@ -304,6 +302,12 @@ macro traitsContain(typ: typedesc): untyped =
     if x[0] == typ:
       return newLit((true, i))
 
+macro genbodyCheck(t: typedesc, info: static InstInfo): untyped =
+  if t.getTypeInst[1].typeKind == ntyGenericBody:
+    let node = newStmtList()
+    node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
+    error("Cannot use `toTrait` due to lacking generic parameters on '" & t.getTypeInst[1].repr & "'", node)
+
 proc format(val: InstInfo): string =
   fmt"{val.filename}({val.line}, {val.column})"
 
@@ -333,6 +337,8 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
           result.add "\n"
 
   proc toTrait*[T; Constraint: trait](val: sink T, traitTyp: typedesc[Constraint]): auto =
+    const procInfo = instantiationInfo(fullPaths = true)
+    genbodyCheck(traitTyp, procInfo)
     const missMsg = errorCheck[T](traitTyp)
     when missMsg.len > 0:
       doError(missMsg, instantiationInfo(fullPaths = true))
