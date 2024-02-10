@@ -26,6 +26,8 @@ proc instGenTree(trait: NimNode): NimNode =
     case trait.typeKind
     of ntyGenericInst:
       trait
+    of ntyDistinct:
+      trait
     else:
       trait.getTypeInst()[1]
 
@@ -94,8 +96,6 @@ macro emitTupleType*(trait: typedesc): untyped =
   #when not defined(traitor.fattraitors):
     #result = nnkPtrTy.newTree(result)
 
-template indirect*(t: typed): untyped = emitTupleType(t)
-
 type
   GenericType* = concept type F ## Cannot instantiate it so it's just checked it's a `type T[...] = distinct tuple`
     isGeneric(F)
@@ -112,10 +112,10 @@ type
     f.distinctBase() is tuple
 
   ValidTraitor* = GenericType or TraitType
-
+  Dummy[T] = object
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
-    vtable*: typeof(indirect(emitTupleType(Traits)))
+    vtable*: typeof(emitTupleType(typeof(Traits)))
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final, acyclic.} = ref object of Traitor[Traits] ##
     ## Typed Trait object has a known data type and can be unpacked
@@ -160,16 +160,17 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
 
   result.params[0] = origType[0][0]
 
-  for i, def in procType[1..^1]:
-    let arg = genSym(nskParam, "param" & $i)
-    var theTyp = def[^2].copyNimTree
+  for def in procType[1..^1]:
+    for _ in def[0..^3]:
+      let arg = genSym(nskParam, "param" & $(result.params.len - 1))
+      var theTyp = def[^2].copyNimTree
 
-    if i == 0:
-      theTyp = traitType
-      call.add nnkDotExpr.newTree(nnkCall.newTree(typedTrait, arg), ident"data")
-    else:
-      call.add arg
-    result.params.add newIdentDefs(arg, theTyp)
+      if result.params.len - 1 == 0:
+        theTyp = traitType
+        call.add nnkDotExpr.newTree(nnkCall.newTree(typedTrait, arg), ident"data")
+      else:
+        call.add arg
+      result.params.add newIdentDefs(arg, theTyp)
 
   result[^1] = call
   result = newStmtList(result, result[0])
@@ -237,25 +238,28 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
     let genParams = traitType[1].getImpl()[1]
     if genParams.len > 0:
       result[2] = nnkGenericParams.newNimNode()
-      traitType[1] = nnkBracketExpr.newTree(traitType[1])
+      let genericTrait = nnkBracketExpr.newTree(traitType[1])
+      traitType[1] = genSym(nskType, "Arg")
       for typ in genParams:
-        result[2].add newIdentDefs(ident $typ, newEmptyNode())
-        traitType[1].add ident $typ
+        result[2].add newIdentDefs(ident($typ), newEmptyNode())
+        genericTrait.add ident($typ)
+      result[2].add newIdentDefs(traitType[1], genericTrait)
 
     let
       theCall = newCall(newEmptyNode())
       body = newStmtList()
     var atomParam: NimNode
     for i, def in typ.params[1..^1]:
-      let paramName = genSym(nskParam, "param" & $i)
-      var theArgTyp = newStmtList(def[^2])
+      for _ in def[0..^3]:
+        let paramName = genSym(nskParam, "param" & $(result.params.len - 1))
+        var theArgTyp = newStmtList(def[^2])
 
-      if i == 0:
-        atomParam = paramName
-        theArgTyp = traitType
+        if result.params.len - 1 == 0:
+          atomParam = paramName
+          theArgTyp = traitType
 
-      result.params.add newIdentDefs(paramName, theArgTyp)
-      theCall.add paramName
+        result.params.add newIdentDefs(paramName, theArgTyp)
+        theCall.add paramName
 
     theCall[0] = genast(offset, atomParam):
       atomParam.vtable[offset]
@@ -317,8 +321,8 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     when has:
       doError("Trait named '" & $trait & "' was already implemented at: " & implementedTraits[ind][1].format, info)
     addTrait(trait, instantiationInfo(fullpaths = true))
-  #[
-  proc errorCheck[T; Constraint: trait](traitType: typedesc[Constraint]): string =
+
+  proc errorCheck[T](traitType: typedesc[trait]): string =
     const missing = emitPointerProc(traitType, T, true)
     for i, miss in missing:
       if miss != "":
@@ -327,19 +331,13 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
         result.add miss
         if i < missing.high:
           result.add "\n"
-  ]#
+
   proc toTrait*[T; Constraint: trait](val: sink T, traitTyp: typedesc[Constraint]): auto =
-    #[
-    const missMsg = errorCheck[T, traitTyp](traitTyp)
+    const missMsg = errorCheck[T](traitTyp)
     when missMsg.len > 0:
       doError(missMsg, instantiationInfo(fullPaths = true))
     else:
-    ]#
-      when defined(traitor.fattraitors):
-        Traitor[traitTyp](TypedTraitor[T, traitTyp](vtable: static(emitPointerProc(traitTyp, T)), data: ensureMove val))
-      else:
-        let vtable {.global.} = static(emitPointerProc(traitTyp, T))
-        Traitor[traitTyp](TypedTraitor[T, traitTyp](vtable: vtable.addr, data: ensureMove val))
+      Traitor[traitTyp](TypedTraitor[T, traitTyp](vtable: static(emitPointerProc(traitTyp, T)), data: ensureMove val))
 
   {.checks: off.}
   genProcs(Traitor[trait])
