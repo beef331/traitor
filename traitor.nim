@@ -111,7 +111,7 @@ type
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
-    vtable*: typeof(emitTupleType(typeof(Traits)))
+    vtable*: typeof(emitTupleType(Traits))
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final, acyclic.} = ref object of Traitor[Traits] ##
     ## Typed Trait object has a known data type and can be unpacked
@@ -147,7 +147,7 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
       proc name() {.nimcall.} = discard
   else:
     result = genast(name = gensym(nskProc, $name)):
-      proc name() {.nimcall, gensym.} = discard
+      proc name() {.nimcall.} = discard
 
   let
     call = newCall(name)
@@ -158,14 +158,15 @@ proc genPointerProc(name, origType, instType, origTraitType: NimNode): NimNode =
 
   for def in procType[1..^1]:
     for _ in def[0..^3]:
-      let arg = genSym(nskParam, "param" & $(result.params.len - 1))
-      var theTyp = def[^2].copyNimTree
-
-      if result.params.len - 1 == 0:
-        theTyp = traitType
-        call.add nnkDotExpr.newTree(nnkCall.newTree(typedTrait, arg), ident"data")
-      else:
-        call.add arg
+      let
+        arg = ident "param" & $(result.params.len - 1)
+        theTyp =
+          if result.params.len - 1 == 0:
+            call.add nnkDotExpr.newTree(nnkCall.newTree(typedTrait, arg), ident"data")
+            traitType
+          else:
+            call.add arg
+            def[^2]
       result.params.add newIdentDefs(arg, theTyp)
 
   result[^1] = call
@@ -223,47 +224,49 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
     let traitType = traitType.copyNimTree()
     when defined(traitor.nicenames):
       result = genast(
-        name = ident $name,
-        exportedName = newLit $name & "_" & traitType.repr.multiReplace({"[": "_", "]": ""})
+        name,
+        exportedName = newLit "$1_" & traitType.repr.multiReplace({"[": "_", "]": ""})
       ):
         proc name*() {.exportc: exportedName.} = discard
     else:
-      result = genast(name = ident $name):
+      result = genast(name):
         proc name*() = discard
+
     result.params[0] = typ.params[0].copyNimTree
 
     let genParams = traitType[1].getImpl()[1]
     if genParams.len > 0:
       result[2] = nnkGenericParams.newNimNode()
-      let genericTrait = nnkBracketExpr.newTree(traitType[1])
-      traitType[1] = genSym(nskType, "Arg")
+      let constraint = nnkBracketExpr.newTree(traitType[1])
+      traitType[1] = ident"Arg"
+
       for typ in genParams:
         result[2].add newIdentDefs(ident($typ), newEmptyNode())
-        genericTrait.add ident($typ)
-      result[2].add newIdentDefs(traitType[1], genericTrait)
+        constraint.add ident($typ)
 
-    let
-      theCall = newCall(newEmptyNode())
-      body = newStmtList()
-    var atomParam: NimNode
+      result[2].add newIdentDefs(traitType[1], constraint)
+
+    let theCall = newCall(newEmptyNode())
+
     for i, def in typ.params[1..^1]:
       for _ in def[0..^3]:
-        let paramName = genSym(nskParam, "param" & $(result.params.len - 1))
-        var theArgTyp = newStmtList(def[^2])
-
-        if result.params.len - 1 == 0:
-          atomParam = paramName
-          theArgTyp = traitType
+        let
+          paramName = ident("param" & $(result.params.len - 1))
+          theArgTyp =
+            if result.params.len - 1 == 0:
+              theCall[0] = genast(offset, paramName):
+                paramName.vtable[offset]
+              traitType
+            else:
+              def[^2]
 
         result.params.add newIdentDefs(paramName, theArgTyp)
         theCall.add paramName
 
-    theCall[0] = genast(offset, atomParam):
-      atomParam.vtable[offset]
 
-    result[^1] = newStmtList(body, theCall)
-
+    result[^1] = theCall
     inc offset
+    echo result.repr
 
   of ntyTuple:
     result = newStmtList()
@@ -345,9 +348,7 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     else:
       Traitor[traitTyp](TypedTraitor[T, traitTyp](vtable: static(emitPointerProc(traitTyp, T)), data: ensureMove val))
 
-  {.checks: off.}
   genProcs(Traitor[trait])
-  {.checks:on.}
 
 template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
   ## Emits a converter from `T` to `Traitor[trait]`
