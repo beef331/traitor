@@ -1,8 +1,6 @@
-import ../traitor
-import std/macros
 import balls
 
-
+import ../traitor
 type Generic[X] = distinct tuple[doStuff: proc(_: Atom, val: X): string{.nimcall.}]
 
 implTrait Generic
@@ -10,17 +8,14 @@ implTrait Generic
 proc doStuff[H](i: int, val: H): string = $val
 proc doStuff[H](i: string, val: H): string = $val
 
-assert "hello".toTrait(Generic[int]).doStuff(100) == $100
-assert "hmm".toTrait(Generic[string]).doStuff("bleh") == "bleh"
-#assert "oh".toTrait(Generic[int]).doStuff(200) == $200
-#assert 100.toTrait(Generic[int]).doStuff(200) == $200
 
+static:
+  check "oh".toTrait(Generic[int]).doStuff(200) == $200
+  check 100.toTrait(Generic[int]).doStuff(200) == $200
+  check "oh".toTrait(Generic[string]).doStuff("what") == "what"
+  check 100.toTrait(Generic[string]).doStuff("huzuh") == "huzuh"
 
-#assert 100.toTrait(Generic[string]).doStuff("what") == "what"
-#[
-suite "Generic Impls":
-  test "doStuff":
-    assert 10.toTrait(Generic[int]).doStuff(100) == $100
-    assert "oh".toTrait(Generic[string]).doStuff("hmm") == "hmm"
-
-]#
+check "oh".toTrait(Generic[int]).doStuff(200) == $200
+check 100.toTrait(Generic[int]).doStuff(200) == $200
+check "oh".toTrait(Generic[string]).doStuff("what") == "what"
+check 100.toTrait(Generic[string]).doStuff("huzuh") == "huzuh"

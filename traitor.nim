@@ -79,6 +79,13 @@ proc deAtomProcType(def, trait: NimNode): NimNode =
   result = typImpl.copyNimTree()
   result[0][1][^2] = nnkBracketExpr.newTree(ident"Traitor", trait)
 
+proc desymFields(tree: NimNode) =
+  for i, node in tree:
+    if node.kind == nnkIdentDefs:
+      node[0] = ident($node[0])
+    else:
+      desymFields(node)
+
 macro emitTupleType*(trait: typedesc): untyped =
   ## Exported just to get around generic binding issue
   result = nnkTupleConstr.newTree()
@@ -91,6 +98,7 @@ macro emitTupleType*(trait: typedesc): untyped =
     else:
       for prc in def[^2]:
         result.add deAtomProcType(prc, trait)
+  desymFields(result)
 
 type
   GenericType* = concept type F ## Cannot instantiate it so it's just checked it's a `type T[...] = distinct tuple`
@@ -266,7 +274,6 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
 
     result[^1] = theCall
     inc offset
-    echo result.repr
 
   of ntyTuple:
     result = newStmtList()
