@@ -57,20 +57,18 @@ type
   PrimitiveAtom* = SomeOrdinal or SomeFloat or enum or bool or char or PrimitiveBase or set ##
     ## Built in value types that can be copied by memory
 
-proc onlyPrimitives*(val: typedesc[PrimitiveAtom]): bool =
+proc onlyPrimitives*(val: typedesc[PrimitiveAtom]) =
   ## All PrimitiveAtoms are safe to stream directly.
-  true
+  doAssert true
 
-proc onlyPrimitives*[Idx, T](val: typedesc[array[Idx, T]]): bool =
+proc onlyPrimitives*[Idx, T](val: typedesc[array[Idx, T]])=
   ## Procedure to ensure `array`s only are made of prototypes
   onlyPrimitives(T)
 
-proc onlyPrimitives(obj: typedesc[object or tuple]): bool =
+proc onlyPrimitives(obj: typedesc[object or tuple]) =
   ## Procedure to ensure `object`s only are made of prototypes
-  for x in default(obj).fields:
-    when not onlyPrimitives(typeof(x)):
-      return false
-  true
+  for field in default(obj).fields:
+    onlyPrimitives(typeof(field))
 
 type
   Primitive* = concept type P ## Any type that is `onlyPrimitives(T) is true`
