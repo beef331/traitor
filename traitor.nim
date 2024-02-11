@@ -119,10 +119,7 @@ type
 
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
-    when defined(traitorFatPointers):
-      vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
-    else:
-      vtable*: ptr typeof(emitTupleType(Traits)) # ptr emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
+    vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
 
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final, acyclic.} = ref object of Traitor[Traits] ##
@@ -168,14 +165,13 @@ macro getIndex(trait, prc: typed, name: static string): untyped =
   if result[0].kind == nnkElse:
     error("No proc matches name: " & name)
 
-when defined(traitorFatPointers):
-  proc setProcImpl[T, Trait](traitor: TypedTraitor[T, Trait], name: static string, prc: proc) =
-    traitor.vtable[getIndex(Trait, prc, name)] = prc
+proc setProcImpl[T, Trait](traitor: TypedTraitor[T, Trait], name: static string, prc: proc) =
+  traitor.vtable[getIndex(Trait, prc, name)] = prc
 
-  template setProc*[T, Trait](traitor: TypedTraitor[T, Trait], name: untyped, prc: proc) =
-    ## Allows one to override the vtable for a specific instance
-    const theProc = prc
-    traitor.vtable[getIndex(Trait, theProc, astToStr(name))] = theProc
+template setProc*[T, Trait](traitor: TypedTraitor[T, Trait], name: untyped, prc: proc) =
+  ## Allows one to override the vtable for a specific instance
+  const theProc = prc
+  traitor.vtable[getIndex(Trait, theProc, astToStr(name))] = theProc
 
 
 proc getData*[T; Traits](tratr: Traitor[Traits], _: typedesc[T]): var T =
@@ -249,7 +245,7 @@ macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped
 
         result.add:
           genast(prc, defRetType, implRet, typ = def[^2]):
-            when not compiles(prc) or (defRetType isnot void and not compiles((let x = implRet))):
+            when not compiles(prc) or (defRetType isnot void and compiles((let x: defRetType = implRet))):
               astToStr(typ)
             else:
               ""
@@ -414,13 +410,9 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     genbodyCheck(traitTyp, procInfo)
     const missMsg = errorCheck[T](traitTyp)
     when missMsg.len > 0:
-      doError(missMsg, instantiationInfo(fullPaths = true))
+      doError(missMsg, procInfo)
     else:
-      when defined(traitorFatPointers):
-        TypedTraitor[T, trait](vtable: static(emitPointerProc(trait, T)), data: ensureMove val)
-      else:
-        let vtable {.global.} = static(emitPointerProc(trait, T))
-        TypedTraitor[T, trait](vtable: vtable.addr, data: ensureMove val)
+      TypedTraitor[T, traitTyp](vtable: static(emitPointerProc(traitTyp, T)), data: ensureMove val)
 
   genProcs(Traitor[trait])
 
