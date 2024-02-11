@@ -6,12 +6,12 @@ nim	PrimitiveAtom	traitor/streams.html#PrimitiveAtom	type PrimitiveAtom		57
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[PrimitiveAtom]	proc onlyPrimitives(val: typedesc[PrimitiveAtom])		60
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[array[Idx,T]]	proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]])		64
 nim	Primitive	traitor/streams.html#Primitive	type Primitive		74
-nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T](val`gensym46: sink T; __1543506926: typedesc[StreamTrait]): Traitor[\n    StreamTrait]		326
-nim	readData	traitor/streams.html#readData,Traitor[StreamTrait],,	proc readData(param0_1543507211: Traitor[StreamTrait]; param1_1543507212:\n  pointer; param2_1543507213:\n  int): int		89
-nim	writeData	traitor/streams.html#writeData,Traitor[StreamTrait],,	proc writeData(param0_1543507214: Traitor[StreamTrait]; param1_1543507215:\n  pointer; param2_1543507216:\n  int): int		89
-nim	setPos	traitor/streams.html#setPos,Traitor[StreamTrait],	proc setPos(param0_1543507217: Traitor[StreamTrait]; param1_1543507218:\n  int)		89
-nim	getPos	traitor/streams.html#getPos,Traitor[StreamTrait]	proc getPos(param0_1543507219: Traitor[StreamTrait]): int		89
-nim	atEnd	traitor/streams.html#atEnd,Traitor[StreamTrait]	proc atEnd(param0_1543507220: Traitor[StreamTrait]): bool		338
+nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T; Constraint: StreamTrait](val`gensym6: sink T;\n                                    traitTyp`gensym6: typedesc[Constraint]): auto		402
+nim	readData	traitor/streams.html#readData,Traitor[StreamTrait],pointer,int	proc readData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
+nim	writeData	traitor/streams.html#writeData,Traitor[StreamTrait],pointer,int	proc writeData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
+nim	setPos	traitor/streams.html#setPos,Traitor[StreamTrait],int	proc setPos(param0: Traitor[StreamTrait]; param1: int)		89
+nim	getPos	traitor/streams.html#getPos,Traitor[StreamTrait]	proc getPos(param0: Traitor[StreamTrait]): int		89
+nim	atEnd	traitor/streams.html#atEnd,Traitor[StreamTrait]	proc atEnd(param0: Traitor[StreamTrait]): bool		77
 nim	read	traitor/streams.html#read,Stream,typedesc[Primitive]	proc read(strm: var Stream; T: typedesc[Primitive]): T:type		79
 nim	read	traitor/streams.html#read,Stream,int	proc read(strm: var Stream; maxAmount: int): string		87
 nim	write	traitor/streams.html#write,Stream,Primitive	proc write(strm: var Stream; data: Primitive): int		93
@@ -23,7 +23,7 @@ nim	writeData	traitor/streams.html#writeData,StringStream,pointer,int	proc write
 nim	setPos	traitor/streams.html#setPos,StringStream,int	proc setPos(ss: var StringStream; pos: int)		129
 nim	getPos	traitor/streams.html#getPos,StringStream	proc getPos(ss: var StringStream): int		130
 nim	FileStream	traitor/streams.html#FileStream	object FileStream		133
-nim	init	traitor/streams.html#init,typedesc[FileStream],string,FileMode	proc init(__1543507302: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream		136
+nim	init	traitor/streams.html#init,typedesc[FileStream],string,FileMode	proc init(__1543505361: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream		136
 nim	readData	traitor/streams.html#readData,FileStream,pointer,int	proc readData(fs: var FileStream; dest: pointer; amount: int): int		142
 nim	writeData	traitor/streams.html#writeData,FileStream,pointer,int	proc writeData(fs: var FileStream; data: pointer; amount: int): int		145
 nim	atEnd	traitor/streams.html#atEnd,FileStream	proc atEnd(fs: var FileStream): bool		148

@@ -1,11 +1,15 @@
 nimTitle	traitor	traitor.html	module traitor		0
-nim	Atom	traitor.html#Atom	type Atom		17
-nim	emitTupleType	traitor.html#emitTupleType.m,typed	macro emitTupleType(trait: typed): untyped		38
-nim	ValidTraitor	traitor.html#ValidTraitor	type ValidTraitor		56
-nim	Traitor	traitor.html#Traitor	type Traitor		67
-nim	TypedTraitor	traitor.html#TypedTraitor	type TypedTraitor		74
-nim	StaticTraitor	traitor.html#StaticTraitor	type StaticTraitor		78
-nim	AnyTraitor	traitor.html#AnyTraitor	type AnyTraitor		81
-nim	getData	traitor.html#getData,Traitor[Traits],typedesc[T]	proc getData[T; Traits](tratr: Traitor[Traits]; __520093800: typedesc[T]): var T		127
-nim	implTrait	traitor.html#implTrait.t,typedesc[ValidTraitor]	template implTrait(trait: typedesc[ValidTraitor])		303
-nim	emitConverter	traitor.html#emitConverter.t,typedesc,typedesc[ValidTraitor]	template emitConverter(T: typedesc; trait: typedesc[ValidTraitor])		341
+nim	isGeneric	traitor.html#isGeneric.m,typedesc	macro isGeneric(t: typedesc): untyped		46
+nim	Atom	traitor.html#Atom	type Atom		55
+nim	emitTupleType	traitor.html#emitTupleType.m,typedesc	macro emitTupleType(trait: typedesc): untyped		83
+nim	GenericType	traitor.html#GenericType	type GenericType		98
+nim	TraitType	traitor.html#TraitType	type TraitType		101
+nim	ValidTraitor	traitor.html#ValidTraitor	type ValidTraitor		112
+nim	Traitor	traitor.html#Traitor	type Traitor		114
+nim	TypedTraitor	traitor.html#TypedTraitor	type TypedTraitor		119
+nim	StaticTraitor	traitor.html#StaticTraitor	type StaticTraitor		123
+nim	AnyTraitor	traitor.html#AnyTraitor	type AnyTraitor		126
+nim	setProc	traitor.html#setProc.t,TypedTraitor[T,Trait],untyped,proc	template setProc[T, Trait](traitor: TypedTraitor[T, Trait]; name: untyped; prc: proc)		165
+nim	getData	traitor.html#getData,Traitor[Traits],typedesc[T]	proc getData[T; Traits](tratr: Traitor[Traits]; __520093855: typedesc[T]): var T		171
+nim	implTrait	traitor.html#implTrait.t,typedesc[ValidTraitor]	template implTrait(trait: typedesc[ValidTraitor])		379
+nim	emitConverter	traitor.html#emitConverter.t,typedesc,typedesc[ValidTraitor]	template emitConverter(T: typedesc; trait: typedesc[ValidTraitor])		413
