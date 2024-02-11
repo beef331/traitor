@@ -1,5 +1,5 @@
 import ../traitor/streams
-import balls
+import unittest # import balls # this causes the compiler to sigsegv...?
 
 suite "Streams":
   test "Static Dispatch":
