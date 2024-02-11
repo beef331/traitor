@@ -71,28 +71,22 @@ assert elements[2].getData(Radio) == Radio(x: 30, y: 30, r: 10) # We can use `ge
 elements[2].getData(Radio).x = 0 # It emits a `var T` so it can be mutated
 assert elements[2].getData(Radio).x == 0
 
-when defined(traitorFatPointers): # Fat pointers allow us to set procedures for instances
-  let elem = ClickObj[Button](elements[0])
-  elem.setProc onClick, proc(arg: Traitor[Clickable]): string = "Hmmmm"
-  for i, x in elements:
-    let msg = x.onClick()
-    case i
-    of 0:
-      assert msg == "Hmmmm"
-    of 1:
-      assert msg == "Clicked a button"
-    of 2:
-      assert msg == "Clicked a radio"
-    else:
-      assert false
+let elem = ClickObj[Button](elements[0])
+elem.setProc onClick, proc(arg: Traitor[Clickable]): string = "Hmmmm"
+for i, x in elements:
+  let msg = x.onClick()
+  case i
+  of 0:
+    assert msg == "Hmmmm"
+  of 1:
+    assert msg == "Clicked a button"
+  of 2:
+    assert msg == "Clicked a radio"
+  else:
+    assert false
 ```
 
 ## Additional information
-
-Defining `-d:traitorFatPointers` allows one to change where the vtable is stored.
-By default there is a vtable generated per trait.
-This flag moves the the vtable to the `Traitor` object which increases memory usage,
-but in limited testing can improve dispatch time through cache optimising.
 
 Defining `-d:traitorNiceNames` can be used to make the generate procedures have nicer names for debugging.
 

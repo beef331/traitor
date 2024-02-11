@@ -52,17 +52,16 @@ assert elements[2].getData(Radio) == Radio(x: 30, y: 30, r: 10) # We can use `ge
 elements[2].getData(Radio).x = 0 # It emits a `var T` so it can be mutated
 assert elements[2].getData(Radio).x == 0
 
-when defined(traitor.fattraitors):
-  let elem = ClickObj[Button](elements[0])
-  elem.setProc onClick, proc(arg: Traitor[Clickable]): string = "Hmmmm"
-  for i, x in elements:
-    let msg = x.onClick()
-    case i
-    of 0:
-      assert msg == "Hmmmm"
-    of 1:
-      assert msg == "Clicked a button"
-    of 2:
-      assert msg == "Clicked a radio"
-    else:
-      assert false
+let elem = ClickObj[Button](elements[0])
+elem.setProc onClick, proc(arg: Traitor[Clickable]): string = "Hmmmm"
+for i, x in elements:
+  let msg = x.onClick()
+  case i
+  of 0:
+    assert msg == "Hmmmm"
+  of 1:
+    assert msg == "Clicked a button"
+  of 2:
+    assert msg == "Clicked a radio"
+  else:
+    assert false
