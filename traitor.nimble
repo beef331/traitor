@@ -1,6 +1,6 @@
 # Package
 
-version = "0.2.10"
+version = "0.2.11"
 author        = "Jason Beetham"
 description   = "Trait-like package made without insight"
 license       = "MIT"
