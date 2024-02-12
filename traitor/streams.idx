@@ -6,7 +6,7 @@ nim	PrimitiveAtom	traitor/streams.html#PrimitiveAtom	type PrimitiveAtom		57
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[PrimitiveAtom]	proc onlyPrimitives(val: typedesc[PrimitiveAtom])		60
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[array[Idx,T]]	proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]])		64
 nim	Primitive	traitor/streams.html#Primitive	type Primitive		74
-nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T; Constraint: StreamTrait](val`gensym6: sink T;\n                                    traitTyp`gensym6: typedesc[Constraint]): auto		402
+nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T; Constraint: StreamTrait](val`gensym0: sink T;\n                                    traitTyp`gensym0: typedesc[Constraint]): auto		404
 nim	readData	traitor/streams.html#readData,Traitor[StreamTrait],pointer,int	proc readData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
 nim	writeData	traitor/streams.html#writeData,Traitor[StreamTrait],pointer,int	proc writeData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
 nim	setPos	traitor/streams.html#setPos,Traitor[StreamTrait],int	proc setPos(param0: Traitor[StreamTrait]; param1: int)		89
@@ -23,7 +23,7 @@ nim	writeData	traitor/streams.html#writeData,StringStream,pointer,int	proc write
 nim	setPos	traitor/streams.html#setPos,StringStream,int	proc setPos(ss: var StringStream; pos: int)		129
 nim	getPos	traitor/streams.html#getPos,StringStream	proc getPos(ss: var StringStream): int		130
 nim	FileStream	traitor/streams.html#FileStream	object FileStream		133
-nim	init	traitor/streams.html#init,typedesc[FileStream],string,FileMode	proc init(__1543505361: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream		136
+nim	init	traitor/streams.html#init,typedesc[FileStream],string,FileMode	proc init(__1627391453: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream		136
 nim	readData	traitor/streams.html#readData,FileStream,pointer,int	proc readData(fs: var FileStream; dest: pointer; amount: int): int		142
 nim	writeData	traitor/streams.html#writeData,FileStream,pointer,int	proc writeData(fs: var FileStream; data: pointer; amount: int): int		145
 nim	atEnd	traitor/streams.html#atEnd,FileStream	proc atEnd(fs: var FileStream): bool		148
