@@ -6,7 +6,7 @@ nim	PrimitiveAtom	traitor/streams.html#PrimitiveAtom	type PrimitiveAtom		57
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[PrimitiveAtom]	proc onlyPrimitives(val: typedesc[PrimitiveAtom])		60
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[array[Idx,T]]	proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]])		64
 nim	Primitive	traitor/streams.html#Primitive	type Primitive		74
-nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T; Constraint: StreamTrait](val`gensym0: sink T;\n                                    traitTyp`gensym0: typedesc[Constraint]): auto		404
+nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T; Constraint: StreamTrait](val`gensym0: sink T;\n                                    traitTyp`gensym0: typedesc[Constraint]): auto		409
 nim	readData	traitor/streams.html#readData,Traitor[StreamTrait],pointer,int	proc readData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
 nim	writeData	traitor/streams.html#writeData,Traitor[StreamTrait],pointer,int	proc writeData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
 nim	setPos	traitor/streams.html#setPos,Traitor[StreamTrait],int	proc setPos(param0: Traitor[StreamTrait]; param1: int)		89

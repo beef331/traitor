@@ -11,6 +11,6 @@ nim	StaticTraitor	traitor.html#StaticTraitor	type StaticTraitor		121
 nim	AnyTraitor	traitor.html#AnyTraitor	type AnyTraitor		124
 nim	setProc	traitor.html#setProc.t,TypedTraitor[T,Trait],untyped,proc	template setProc[T, Trait](traitor: TypedTraitor[T, Trait]; name: untyped; prc: proc)		160
 nim	getData	traitor.html#getData,Traitor[Traits],typedesc[T]	proc getData[T; Traits](tratr: Traitor[Traits]; __520093856: typedesc[T]): var T		166
-nim	implTrait	traitor.html#implTrait.t,typedesc[ValidTraitor]	template implTrait(trait: typedesc[ValidTraitor])		381
-nim	emitConverter	traitor.html#emitConverter.t,typedesc,typedesc[ValidTraitor]	template emitConverter(T: typedesc; trait: typedesc[ValidTraitor])		417
-nim	joinTraits	traitor.html#joinTraits.m,varargs[typed]	macro joinTraits(traits: varargs[typed]): untyped		438
+nim	implTrait	traitor.html#implTrait.t,typedesc[ValidTraitor]	template implTrait(trait: typedesc[ValidTraitor])		386
+nim	emitConverter	traitor.html#emitConverter.t,typedesc,typedesc[ValidTraitor]	template emitConverter(T: typedesc; trait: typedesc[ValidTraitor])		422
+nim	joinTraits	traitor.html#joinTraits.m,varargs[typed]	macro joinTraits(traits: varargs[typed]): untyped		443
