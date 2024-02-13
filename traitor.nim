@@ -340,7 +340,7 @@ macro genProcs(origTrait: typedesc): untyped =
   let trait = origTrait[^1]
   var tupl = trait.getTypeInst[^1].getTypeImpl()
   if tupl.kind != nnkDistinctTy:
-    error("Trait is not a distinct tuple", tupl)
+    error("Provided trait is not a distinct tuple", tupl)
   tupl = trait.instGenTree()
 
   result = newStmtList()
@@ -356,7 +356,12 @@ macro doError(msg: static string, info: static InstInfo) =
 var implementedTraits {.compileTime.}: seq[(NimNode, InstInfo)]
 
 macro addTrait(t: typedesc, info: static InstInfo) =
-  if t.kind != nnkSym:
+  case t.kind
+  of nnkBracketExpr:
+    error("Expected '" & t[0].repr & "' but got '" & t.repr  & "'", t)
+  of nnkSym:
+    discard
+  else:
     error("Did not use a type alias for the trait tuple.", t)
   implementedTraits.add (t, info)
 
