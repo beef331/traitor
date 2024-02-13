@@ -9,9 +9,11 @@ type
 implTrait Printer
 implTrait Writer
 
-proc print(r: AnyTraitor[Printer]): string =
+proc print(r: AnyTraitor[Printer], _: typedesc[Printer or void] = void): string =
   mixin `$`
   $r
+
+proc print(r: AnyTraitor[Writer], _: typedesc[Writer or void] = void) = discard
 
 proc write(s: var string, r: AnyTraitor[Writer]) =
   mixin append
@@ -27,7 +29,9 @@ suite "Joined":
   test "Basic":
     var buff = ""
     var a = 10f.toTrait Debug
-    check a.print() == $10f
+    check a.print(Printer) == $10f
+    a.print(Writer)
+
     buff.write(a)
     check buff == $10f
     buff.setLen(0)
@@ -39,3 +43,6 @@ suite "Joined":
 
     buff.write (10, 20)
     check buff == $(10, 20)
+
+    check (10, 20).print(Printer) == $(10, 20)
+    (10, 20).print(Writer)

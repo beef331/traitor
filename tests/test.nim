@@ -104,8 +104,7 @@ suite "Basic":
   test "Fail Checks":
     type
       NotTrait = (int, string)
-      NoTDistinct = tuple[bleh: proc(_: Atom) {.nimcall.}]
-
+      NotDistinct = tuple[bleh: proc(_: Atom) {.nimcall.}]
 
     check not compiles(implTrait NotTrait)
     check not compiles(implTrait NotDistinct)
