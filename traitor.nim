@@ -325,6 +325,7 @@ proc genProc(typ, traitType, name: Nimnode, offset: var int): NimNode =
         result.params.add newIdentDefs(paramName, theArgTyp)
         theCall.add paramName
 
+    desym(result) # Force most body to revaluate
 
     result[^1] = theCall
     inc offset

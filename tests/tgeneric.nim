@@ -29,3 +29,30 @@ suite "Generic test":
     check not compiles(10d.toTrait Generic[float])
     check compiles(10d.toTrait Generic[string])
     check not compiles(10f.toTrait Generic[String])
+
+
+
+type Observer*[T] = ref object
+  subscription: proc(value: T)
+  error: proc(error: CatchableError)
+  complete: proc()
+
+type Observable*[T] = ref object
+  observers: seq[Observer[T]]
+  values: seq[T]
+  complete: bool
+
+type Subject*[T] = ref object
+  observers: seq[Observer[T]]
+  complete: bool
+
+type Reactable[T] = distinct tuple [
+  getObservers: proc(a: Atom): seq[Observer[T]] {.nimcall.}
+]
+
+implTrait Reactable
+proc getObservers[T](reactable: Observable[T]): seq[Observer[T]] = reactable.observers
+proc getObservers[T](reactable: Subject[T]): seq[Observer[T]] = reactable.observers
+
+var subject = Subject[int]().toTrait(Reactable[int])
+
