@@ -12,10 +12,10 @@
 <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA3XAAAN1wFCKJt4AAAAB3RJTUUH4QQQEwksSS9ZWwAAAk1JREFUWMPtll2ITVEUx39nn/O7Y5qR8f05wtCUUr6ZIS++8pEnkZInPImneaCQ5METNdOkeFBKUhMPRIkHKfEuUZSUlGlKPN2TrgfncpvmnntnmlEyq1Z7t89/rf9a6+y99oZxGZf/XeIq61EdtgKXgdXA0xrYAvBjOIF1AI9zvjcC74BSpndrJPkBWDScTF8Aa4E3wDlgHbASaANmVqlcCnwHvgDvgVfAJ+AikAAvgfVZwLnSVZHZaOuKoQi3ZOMi4NkYkpe1p4J7A8BpYAD49hfIy/oqG0+hLomiKP2L5L+1ubn5115S+3OAn4EnwBlgMzCjyt6ZAnQCJ4A7wOs88iRJHvw50HoujuPBoCKwHWiosy8MdfZnAdcHk8dxXFJ3VQbQlCTJvRBCGdRbD4M6uc5glpY3eAihpN5S5w12diSEcCCEcKUO4ljdr15T76ur1FDDLIQQ3qv71EdDOe3Kxj3leRXyk+pxdWnFWod6Wt2bY3de3aSuUHcPBVimHs7mK9WrmeOF6lR1o9qnzskh2ar2qm1qizpfXaPeVGdlmGN5pb09qMxz1Xb1kLqgzn1RyH7JUXW52lr5e/Kqi9qpto7V1atuUzfnARrV7jEib1T76gG2qxdGmXyiekkt1GswPTtek0aBfJp6YySGBfWg2tPQ0FAYgf1stUfdmdcjarbYJEniKIq6gY/Aw+zWHAC+p2labGpqiorFYgGYCEzN7oQdQClN07O1/EfDyGgC0ALMBdYAi4FyK+4H3gLPsxfR1zRNi+NP7nH5J+QntnXe5B5mpfQAAAAASUVORK5CYII=">
 
 <!-- CSS -->
-<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.0.2">
+<link rel="stylesheet" type="text/css" href="nimdoc.out.css?v=2.0.4">
 
 <!-- JS -->
-<script type="text/javascript" src="dochack.js?v=2.0.2"></script>
+<script type="text/javascript" src="dochack.js?v=2.0.4"></script>
 </head>
 <body>
   <div class="document" id="documentId">
@@ -84,7 +84,7 @@
     <summary><a class="reference reference-toplevel" href="#12" id="62">Procs</a></summary>
     <ul class="simple simple-toc-section">
       <ul class="simple nested-toc-section">getData
-  <li><a class="reference" href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D" title="getData[T; Traits](tratr: Traitor[Traits]; __520093856: typedesc[T]): var T">getData[T; Traits](tratr: Traitor[Traits]; __520093856: typedesc[T]): var T</a></li>
+  <li><a class="reference" href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D" title="getData[T; Traits](tratr: Traitor[Traits]; _: typedesc[T]): var T">getData[T; Traits](tratr: Traitor[Traits]; _: typedesc[T]): var T</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">isGeneric
@@ -254,7 +254,7 @@
   <dl class="item">
     <div id="getData-procs-all">
   <div id="getData,Traitor[Traits],typedesc[T]">
-  <dt><pre><span class="Keyword">proc</span> <a href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D"><span class="Identifier">getData</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">tratr</span><span class="Other">:</span> <a href="traitor.html#Traitor"><span class="Identifier">Traitor</span></a><span class="Other">[</span><span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">;</span> <span class="Operator">__520093856</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Keyword">var</span> <span class="Identifier">T</span></pre></dt>
+  <dt><pre><span class="Keyword">proc</span> <a href="#getData%2CTraitor%5BTraits%5D%2Ctypedesc%5BT%5D"><span class="Identifier">getData</span></a><span class="Other">[</span><span class="Identifier">T</span><span class="Other">;</span> <span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">(</span><span class="Identifier">tratr</span><span class="Other">:</span> <a href="traitor.html#Traitor"><span class="Identifier">Traitor</span></a><span class="Other">[</span><span class="Identifier">Traits</span><span class="Other">]</span><span class="Other">;</span> <span class="Operator">_</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><span class="Identifier">T</span><span class="Other">]</span><span class="Other">)</span><span class="Other">:</span> <span class="Keyword">var</span> <span class="Identifier">T</span></pre></dt>
   <dd>
     
     Converts <tt class="docutils literal"><span class="pre"><span class="Identifier">tratr</span></span></tt> to <tt class="docutils literal"><span class="pre"><span class="Identifier">TypedTrait</span><span class="Punctuation">[</span><span class="Identifier">T</span><span class="Punctuation">,</span> <span class="Identifier">Traits</span><span class="Punctuation">]</span></span></tt> then access <tt class="docutils literal"><span class="pre"><span class="Identifier">data</span></span></tt>
@@ -312,8 +312,8 @@
   <dd>
     
     
-    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L443" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L443" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L444" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L444" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -331,8 +331,8 @@
   <dd>
     
     Emits a converter from <tt class="docutils literal"><span class="pre"><span class="Identifier">T</span></span></tt> to <tt class="docutils literal"><span class="pre"><span class="Identifier">Traitor</span><span class="Punctuation">[</span><span class="Identifier">trait</span><span class="Punctuation">]</span></span></tt> This allows skipping of <tt class="docutils literal"><span class="pre"><span class="Identifier">val</span><span class="Operator">.</span><span class="Identifier">toTrait</span><span class="Punctuation">(</span><span class="Identifier">trait</span><span class="Punctuation">)</span></span></tt>
-    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L422" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L422" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L423" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L423" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -347,8 +347,8 @@
 <p><strong class="examples_text">Example:</strong></p>
 <pre class="listing"><span class="Keyword">type</span> <span class="Identifier">MyTrait</span> <span class="Operator">=</span> <span class="Keyword">distinct</span> <span class="Keyword">tuple</span><span class="Punctuation">[</span><span class="Identifier">bleh</span><span class="Punctuation">:</span> <span class="Keyword">proc</span><span class="Punctuation">(</span><span class="Identifier">_</span><span class="Punctuation">:</span> <span class="Identifier">Atom</span><span class="Punctuation">,</span> <span class="Identifier">_</span><span class="Punctuation">:</span> <span class="Identifier">int</span><span class="Punctuation">)</span> <span class="Punctuation">{</span><span class="Operator">.</span><span class="Identifier">nimcall</span><span class="Operator">.</span><span class="Punctuation">}</span><span class="Punctuation">]</span>
 <span class="Identifier">implTrait</span> <span class="Identifier">MyTrait</span></pre>
-    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L386" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L386" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L387" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L387" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -378,7 +378,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2024-02-13 09:11:48 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2024-04-21 19:43:52 UTC</small>
       </div>
     </div>
   </div>

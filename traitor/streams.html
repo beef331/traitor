@@ -12,10 +12,10 @@
 <link rel="icon" type="image/png" sizes="32x32" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAABmJLR0QA/wD/AP+gvaeTAAAACXBIWXMAAA3XAAAN1wFCKJt4AAAAB3RJTUUH4QQQEwksSS9ZWwAAAk1JREFUWMPtll2ITVEUx39nn/O7Y5qR8f05wtCUUr6ZIS++8pEnkZInPImneaCQ5METNdOkeFBKUhMPRIkHKfEuUZSUlGlKPN2TrgfncpvmnntnmlEyq1Z7t89/rf9a6+y99oZxGZf/XeIq61EdtgKXgdXA0xrYAvBjOIF1AI9zvjcC74BSpndrJPkBWDScTF8Aa4E3wDlgHbASaANmVqlcCnwHvgDvgVfAJ+AikAAvgfVZwLnSVZHZaOuKoQi3ZOMi4NkYkpe1p4J7A8BpYAD49hfIy/oqG0+hLomiKP2L5L+1ubn5115S+3OAn4EnwBlgMzCjyt6ZAnQCJ4A7wOs88iRJHvw50HoujuPBoCKwHWiosy8MdfZnAdcHk8dxXFJ3VQbQlCTJvRBCGdRbD4M6uc5glpY3eAihpN5S5w12diSEcCCEcKUO4ljdr15T76ur1FDDLIQQ3qv71EdDOe3Kxj3leRXyk+pxdWnFWod6Wt2bY3de3aSuUHcPBVimHs7mK9WrmeOF6lR1o9qnzskh2ar2qm1qizpfXaPeVGdlmGN5pb09qMxz1Xb1kLqgzn1RyH7JUXW52lr5e/Kqi9qpto7V1atuUzfnARrV7jEib1T76gG2qxdGmXyiekkt1GswPTtek0aBfJp6YySGBfWg2tPQ0FAYgf1stUfdmdcjarbYJEniKIq6gY/Aw+zWHAC+p2labGpqiorFYgGYCEzN7oQdQClN07O1/EfDyGgC0ALMBdYAi4FyK+4H3gLPsxfR1zRNi+NP7nH5J+QntnXe5B5mpfQAAAAASUVORK5CYII=">
 
 <!-- CSS -->
-<link rel="stylesheet" type="text/css" href="../nimdoc.out.css?v=2.0.2">
+<link rel="stylesheet" type="text/css" href="../nimdoc.out.css?v=2.0.4">
 
 <!-- JS -->
-<script type="text/javascript" src="../dochack.js?v=2.0.2"></script>
+<script type="text/javascript" src="../dochack.js?v=2.0.4"></script>
 </head>
 <body>
   <div class="document" id="documentId">
@@ -63,12 +63,11 @@
 <li><a class="reference" href="#PrimitiveBase" title="PrimitiveBase = concept pb
     pb.distinctBase is PrimitiveAtom">PrimitiveBase</a></li>
 <li><a class="reference" href="#Stream" title="Stream = AnyTraitor[StreamTrait]">Stream</a></li>
-<li><a class="reference" href="#StreamTrait" title="StreamTrait = distinct tuple[readData: proc (__1627389959: var Atom;
-    dest: pointer; len: int): int {.nimcall.}, writeData: proc (__1627389964: var Atom;
-    toWrite: pointer; len: int): int {.nimcall.},
-                             setPos: proc (__1627389969: var Atom; pos: int) {.
-    nimcall.}, getPos: proc (__1627389973: Atom): int {.nimcall.},
-                             atEnd: proc (__1627389976: Atom): bool {.nimcall.}]">StreamTrait</a></li>
+<li><a class="reference" href="#StreamTrait" title="StreamTrait = distinct tuple[readData: proc (_: var Atom; dest: pointer;
+    len: int): int {.nimcall.}, writeData: proc (_: var Atom; toWrite: pointer;
+    len: int): int {.nimcall.}, setPos: proc (_: var Atom; pos: int) {.nimcall.},
+                             getPos: proc (_: Atom): int {.nimcall.},
+                             atEnd: proc (_: Atom): bool {.nimcall.}]">StreamTrait</a></li>
 <li><a class="reference" href="#StringStream" title="StringStream = object
   data*: string">StringStream</a></li>
 
@@ -92,7 +91,7 @@
 
 </ul>
 <ul class="simple nested-toc-section">init
-  <li><a class="reference" href="#init%2Ctypedesc%5BFileStream%5D%2Cstring%2CFileMode" title="init(__1627391453: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream">init(__1627391453: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream</a></li>
+  <li><a class="reference" href="#init%2Ctypedesc%5BFileStream%5D%2Cstring%2CFileMode" title="init(_: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream">init(_: typedesc[FileStream]; path: string; mode: FileMode = fmRead): FileStream</a></li>
 
 </ul>
 <ul class="simple nested-toc-section">onlyPrimitives
@@ -252,12 +251,11 @@
   </dd>
 </div>
 <div id="StreamTrait">
-  <dt><pre><a href="streams.html#StreamTrait"><span class="Identifier">StreamTrait</span></a> <span class="Other">=</span> <span class="Keyword">distinct</span> <span class="Keyword">tuple</span><span class="Other">[</span><span class="Identifier">readData</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">__1627389959</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">;</span>
-    <span class="Identifier">dest</span><span class="Other">:</span> <span class="Identifier">pointer</span><span class="Other">;</span> <span class="Identifier">len</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">,</span> <span class="Identifier">writeData</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">__1627389964</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">;</span>
-    <span class="Identifier">toWrite</span><span class="Other">:</span> <span class="Identifier">pointer</span><span class="Other">;</span> <span class="Identifier">len</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">,</span>
-                             <span class="Identifier">setPos</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">__1627389969</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">;</span> <span class="Identifier">pos</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span> {.
-    <span class="Identifier">nimcall</span>.}<span class="Other">,</span> <span class="Identifier">getPos</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">__1627389973</span><span class="Other">:</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">,</span>
-                             <span class="Identifier">atEnd</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">__1627389976</span><span class="Other">:</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">]</span></pre></dt>
+  <dt><pre><a href="streams.html#StreamTrait"><span class="Identifier">StreamTrait</span></a> <span class="Other">=</span> <span class="Keyword">distinct</span> <span class="Keyword">tuple</span><span class="Other">[</span><span class="Identifier">readData</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">_</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">;</span> <span class="Identifier">dest</span><span class="Other">:</span> <span class="Identifier">pointer</span><span class="Other">;</span>
+    <span class="Identifier">len</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">,</span> <span class="Identifier">writeData</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">_</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">;</span> <span class="Identifier">toWrite</span><span class="Other">:</span> <span class="Identifier">pointer</span><span class="Other">;</span>
+    <span class="Identifier">len</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">,</span> <span class="Identifier">setPos</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">_</span><span class="Other">:</span> <span class="Keyword">var</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">;</span> <span class="Identifier">pos</span><span class="Other">:</span> <span class="Identifier">int</span><span class="Other">)</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">,</span>
+                             <span class="Identifier">getPos</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">_</span><span class="Other">:</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">int</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">,</span>
+                             <span class="Identifier">atEnd</span><span class="Other">:</span> <span class="Keyword">proc</span> <span class="Other">(</span><span class="Operator">_</span><span class="Other">:</span> <a href="../traitor.html#Atom"><span class="Identifier">Atom</span></a><span class="Other">)</span><span class="Other">:</span> <span class="Identifier">bool</span> {.<span class="Identifier">nimcall</span>.}<span class="Other">]</span></pre></dt>
   <dd>
     
     Any stream must match this trait to be used by this API.
@@ -335,8 +333,8 @@
   <dd>
     
     
-    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -354,8 +352,7 @@
 </div>
 <div id="init-procs-all">
   <div id="init,typedesc[FileStream],string,FileMode">
-  <dt><pre><span class="Keyword">proc</span> <a href="#init%2Ctypedesc%5BFileStream%5D%2Cstring%2CFileMode"><span class="Identifier">init</span></a><span class="Other">(</span><span class="Operator">__1627391453</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><a href="streams.html#FileStream"><span class="Identifier">FileStream</span></a><span class="Other">]</span><span class="Other">;</span> <span class="Identifier">path</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span>
-          <span class="Identifier">mode</span><span class="Other">:</span> <span class="Identifier">FileMode</span> <span class="Other">=</span> <span class="Identifier">fmRead</span><span class="Other">)</span><span class="Other">:</span> <a href="streams.html#FileStream"><span class="Identifier">FileStream</span></a></pre></dt>
+  <dt><pre><span class="Keyword">proc</span> <a href="#init%2Ctypedesc%5BFileStream%5D%2Cstring%2CFileMode"><span class="Identifier">init</span></a><span class="Other">(</span><span class="Operator">_</span><span class="Other">:</span> <span class="Identifier">typedesc</span><span class="Other">[</span><a href="streams.html#FileStream"><span class="Identifier">FileStream</span></a><span class="Other">]</span><span class="Other">;</span> <span class="Identifier">path</span><span class="Other">:</span> <span class="Identifier">string</span><span class="Other">;</span> <span class="Identifier">mode</span><span class="Other">:</span> <span class="Identifier">FileMode</span> <span class="Other">=</span> <span class="Identifier">fmRead</span><span class="Other">)</span><span class="Other">:</span> <a href="streams.html#FileStream"><span class="Identifier">FileStream</span></a></pre></dt>
   <dd>
     
     
@@ -430,8 +427,8 @@
   <dd>
     
     
-    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -466,8 +463,8 @@
   <dd>
     
     
-    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -490,8 +487,8 @@
   <dd>
     
     Converts a type to <tt class="docutils literal"><span class="pre"><span class="Identifier">traitType</span></span></tt> ensuring it implements procedures This creates a <tt class="docutils literal"><span class="pre"><span class="Keyword">ref</span></span></tt> type and moves <tt class="docutils literal"><span class="pre"><span class="Identifier">val</span></span></tt> to it
-    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L409" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L409" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/traitor.nim#L410" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/traitor.nim#L410" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -538,8 +535,8 @@
   <dd>
     
     
-    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
-<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.2/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
+    <a href="https://github.com/beef331/traitor/tree/master/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank">Source</a>&nbsp;&nbsp;
+<a href="https://github.com/beef331/traitor/edit/devel/../../../.choosenim/toolchains/nim-2.0.4/lib/std/genasts.nim#L89" class="link-seesrc" target="_blank" >Edit</a>&nbsp;&nbsp;
 
   </dd>
 </div>
@@ -566,7 +563,7 @@
       <div class="twelve-columns footer">
         <span class="nim-sprite"></span>
         <br>
-        <small style="color: var(--hint);">Made with Nim. Generated: 2024-02-13 09:11:47 UTC</small>
+        <small style="color: var(--hint);">Made with Nim. Generated: 2024-04-21 19:43:51 UTC</small>
       </div>
     </div>
   </div>
