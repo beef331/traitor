@@ -50,9 +50,9 @@ macro isGenericImpl(t: typedesc): untyped =
 proc isGeneric*(t: typedesc): bool =
   isGenericImpl(t)
 
-type Atom* = distinct void ##
+type Atom* = distinct int ##
   ## Default field name to be replaced for all Traits.
-  ## As it derives from void it never can be instantiated.
+  ## Should be `distinct void` to prevent instantiation...
 
 proc atomCount(p: typedesc[proc]): int =
   {.warning[UnsafeDefault]: off.}
