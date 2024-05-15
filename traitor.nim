@@ -240,9 +240,9 @@ macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped
           implRet = ident"void"
 
         result.add:
-          genast(prc, defRetType, implRet, typ = def[^2]):
+          genast(prc, defRetType, implRet, errorMsg = def.repr):
             when not compiles(prc) or (defRetType isnot void and compiles((let x: defRetType = implRet))):
-              astToStr(typ)
+              errorMsg
             else:
               ""
       else:
@@ -258,9 +258,9 @@ macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped
             implRet = ident"void"
 
           result.add:
-            genast(genProc, prc, defRetType):
+            genast(genProc, prc, defRetType, name = newLit def[0].repr):
               when not compiles(genProc) or not returnTypeMatches(genProc, defRetType):
-                astToStr(prc)
+                name & ": " & astToStr(prc)
               else:
                 ""
   else:

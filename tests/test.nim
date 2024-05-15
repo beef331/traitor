@@ -111,8 +111,8 @@ suite "Basic":
     check not compiles(10.toTrait DuckObject)
     check errorCheck[PartiallyImplemented](BoundObject) == """
 'PartiallyImplemented' failed to match 'BoundObject' due to missing the following procedure(s):
-proc (a: Atom): int {.nimcall.}"""
+doOtherThing: proc (a: Atom): int {.nimcall.}"""
 
     check errorCheck[int](DuckObject) == """
 'int' failed to match 'DuckObject' due to missing the following procedure(s):
-proc (a: var Atom) {.nimcall.}"""
+quack: proc (a: var Atom) {.nimcall.}"""
