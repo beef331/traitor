@@ -65,3 +65,16 @@ for i, x in elements:
     assert msg == "Clicked a radio"
   else:
     assert false
+
+for i, elem in elements:
+  elem.unpackIt:
+    if i in [0, 1]:
+      assert it is TypedTraitor[Button, Clickable]
+    else:
+      assert it is TypedTraitor[Radio, Clickable]
+
+Clickable.repackIt(0):
+  assert It is TypedTraitor[Button, Clickable]
+
+Clickable.repackIt(1):
+  assert It is TypedTraitor[Radio, Clickable]

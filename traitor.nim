@@ -112,6 +112,7 @@ type
   Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
     vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
+    typeId*: int # Index in the type array
 
 
   TypedTraitor*[T; Traits: ValidTraitor] {.final, acyclic.} = ref object of Traitor[Traits] ##
@@ -384,6 +385,41 @@ proc format(val: InstInfo): string =
 
 const errorMessage = "'$#' failed to match '$#' due to missing the following procedure(s):\n"
 
+macro unpackItImpl[T](traitor: Traitor[T], table: static CacheSeq, body: untyped) =
+  result = nnkCaseStmt.newTree(nnkDotExpr.newTree(traitor, ident"typeId"))
+  var i = 0
+  for x in table.items:
+    let elifBody = newStmtList()
+    elifBody.add:
+      genast(traitor, x):
+        let it {.inject.} = TypedTraitor[x, traitor.Traits](traitor)
+
+    elifBody.add body.copyNimTree
+    result.add nnkOfBranch.newTree(newLit i, elifBody)
+    inc i
+
+  result.add:
+    nnkElse.newTree:
+      genast(traitor):
+        raise newException(ValueError, "Unexpected ID: " & $traitor.typeId)
+
+macro repackItImpl(id: int, table: static CacheSeq, trait: typed, body: untyped) =
+  result = nnkCaseStmt.newTree(id)
+  var i = 0
+  for x in table.items:
+    let elifBody = newStmtList()
+    elifBody.add:
+      genast(x, trait):
+        type It {.inject.} = TypedTraitor[x, trait]
+    elifBody.add body.copyNimTree
+    result.add nnkOfBranch.newTree(newLit i, elifBody)
+    inc i
+
+  result.add:
+    nnkElse.newTree:
+      genast(id):
+        raise newException(ValueError, "Unexpected ID: " & $id)
+
 template implTrait*(trait: typedesc[ValidTraitor]) =
   ## Emits the `vtable` for the given `trait` and a procedure for types to convert to `trait`.
   ## It is checked that `trait` is only implemented once so repeated calls error.
@@ -407,6 +443,8 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
         if i < missing.high:
           result.add "\n"
 
+  const typeTable = CacheSeq "Traitor" & $trait
+
   proc toTrait*[T; Constraint: trait](val: sink T, traitTyp: typedesc[Constraint]): auto =
     ## Converts a type to `traitType` ensuring it implements procedures
     ## This creates a `ref` type and moves `val` to it
@@ -416,7 +454,24 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
     when missMsg.len > 0:
       doError(missMsg, procInfo)
     else:
-      Traitor[traitTyp](TypedTraitor[T, traitTyp](vtable: static(emitPointerProc(traitTyp, T)), data: ensureMove val))
+      static: typeTable.add T.getTypeInst()
+      result = Traitor[traitTyp](
+        TypedTraitor[T, traitTyp](
+          vtable: static(emitPointerProc(traitTyp, T)),
+          typeId: static(typeTable.len) - 1,
+          data: ensureMove val
+        )
+      )
+
+  template unpackIt*[T](t: Traitor[T], body: untyped): untyped =
+    ## Branches for each known typeId for a trait of `t`.
+    ## Emits a `it` variable that matches the approriate branch of `t.typeId`.
+    unpackItImpl(t, typeTable, body)
+
+  template repackIt*[T](t: typedesc[T], id: int, body: untyped): untyped =
+    ## Branches for each known typeId for a trait of `t`.
+    ## Emits a `It` alias of the `TypedTrait` that matches the approriate branch of `id`.
+    repackItImpl(id, typeTable, t, body)
 
   genProcs(Traitor[trait])
 
