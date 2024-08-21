@@ -463,12 +463,12 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
         )
       )
 
-  template unpackIt*[T](t: Traitor[T], body: untyped): untyped =
+  template unpackIt*(t: Traitor[trait], body: untyped): untyped =
     ## Branches for each known typeId for a trait of `t`.
     ## Emits a `it` variable that matches the approriate branch of `t.typeId`.
     unpackItImpl(t, typeTable, body)
 
-  template repackIt*[T](t: typedesc[T], id: int, body: untyped): untyped =
+  template repackIt*(t: typedesc[trait], id: int, body: untyped): untyped =
     ## Branches for each known typeId for a trait of `t`.
     ## Emits a `It` alias of the `TypedTrait` that matches the approriate branch of `id`.
     repackItImpl(id, typeTable, t, body)
