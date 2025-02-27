@@ -6,7 +6,9 @@ nim	PrimitiveAtom	traitor/streams.html#PrimitiveAtom	type PrimitiveAtom		57
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[PrimitiveAtom]	proc onlyPrimitives(val: typedesc[PrimitiveAtom])		60
 nim	onlyPrimitives	traitor/streams.html#onlyPrimitives,typedesc[array[Idx,T]]	proc onlyPrimitives[Idx, T](val: typedesc[array[Idx, T]])		64
 nim	Primitive	traitor/streams.html#Primitive	type Primitive		74
-nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T; Constraint: StreamTrait](val`gensym0: sink T;\n                                    traitTyp`gensym0: typedesc[Constraint]): auto		410
+nim	toTrait	traitor/streams.html#toTrait,sinkT,	proc toTrait[T; Constraint: StreamTrait](val`gensym0: sink T;\n                                    traitTyp`gensym0: typedesc[Constraint]): auto		448
+nim	unpackIt	traitor/streams.html#unpackIt.t,,untyped	template unpackIt(t`gensym0: Traitor[StreamTrait]; body`gensym0: untyped): untyped		466
+nim	repackIt	traitor/streams.html#repackIt.t,,int,untyped	template repackIt(t`gensym0: typedesc[StreamTrait]; id`gensym0: int;\n         body`gensym0: untyped): untyped		471
 nim	readData	traitor/streams.html#readData,Traitor[StreamTrait],pointer,int	proc readData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
 nim	writeData	traitor/streams.html#writeData,Traitor[StreamTrait],pointer,int	proc writeData(param0: Traitor[StreamTrait]; param1: pointer; param2: int): int		89
 nim	setPos	traitor/streams.html#setPos,Traitor[StreamTrait],int	proc setPos(param0: Traitor[StreamTrait]; param1: int)		89
@@ -29,11 +31,11 @@ nim	writeData	traitor/streams.html#writeData,FileStream,pointer,int	proc writeDa
 nim	atEnd	traitor/streams.html#atEnd,FileStream	proc atEnd(fs: var FileStream): bool		148
 nim	setPos	traitor/streams.html#setPos,FileStream,int	proc setPos(fs: var FileStream; pos: int)		150
 nim	getPos	traitor/streams.html#getPos,FileStream	proc getPos(fs: var FileStream): int		151
-nimgrp	atend	traitor/streams.html#atEnd-procs-all	proc		89
-nimgrp	write	traitor/streams.html#write-procs-all	proc		93
-nimgrp	getpos	traitor/streams.html#getPos-procs-all	proc		89
 nimgrp	readdata	traitor/streams.html#readData-procs-all	proc		89
-nimgrp	read	traitor/streams.html#read-procs-all	proc		79
-nimgrp	writedata	traitor/streams.html#writeData-procs-all	proc		89
-nimgrp	onlyprimitives	traitor/streams.html#onlyPrimitives-procs-all	proc		60
 nimgrp	setpos	traitor/streams.html#setPos-procs-all	proc		89
+nimgrp	onlyprimitives	traitor/streams.html#onlyPrimitives-procs-all	proc		60
+nimgrp	writedata	traitor/streams.html#writeData-procs-all	proc		89
+nimgrp	getpos	traitor/streams.html#getPos-procs-all	proc		89
+nimgrp	write	traitor/streams.html#write-procs-all	proc		93
+nimgrp	read	traitor/streams.html#read-procs-all	proc		79
+nimgrp	atend	traitor/streams.html#atEnd-procs-all	proc		89
