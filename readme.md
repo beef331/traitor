@@ -2,7 +2,7 @@
 
 A trait library made from bordem.
 
-[Docs](http://www.jasonbeetham.com/traitor/)
+[Docs](http://www.jasonbeetham.ca/traitor/)
 
 ## What does it do?!
 
