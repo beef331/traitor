@@ -56,3 +56,30 @@ proc getObservers[T](reactable: Subject[T]): seq[Observer[T]] = reactable.observ
 
 var subject = Subject[int]().toTrait(Reactable[int])
 
+
+type
+  Trait = distinct tuple[
+    sendMessage: proc(self: Atom, message: openArray[char]): string
+  ]
+  Sender = object
+
+implTrait Trait
+
+proc sendMessage(self: Sender, message: openArray[char]): string = $message
+
+check Sender().toTrait(Trait).sendMessage("Hello, world!") == "['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!']"
+
+import pkg/traitor
+type
+  GenericTrait[T] = distinct tuple[
+    initialize: proc(self: Atom, userdata: T),
+  ]
+  FileSender[T] = object
+  Message = object
+    bytes: array[16, char]
+
+implTrait GenericTrait
+
+proc initialize(self: FileSender[Message], userdata: Message) = check userData == default(Message)
+
+FileSender[Message]().toTrait(GenericTrait[Message]).initialize(Message())

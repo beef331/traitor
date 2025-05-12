@@ -44,7 +44,7 @@ proc instGenTree(trait: NimNode): NimNode =
     trait
 
 macro isGenericImpl(t: typedesc): untyped =
-  var t = t.getTypeInst[1]
+  var t = t.getTypeImpl[^1]
   newLit t.kind == nnkBracketExpr or t.getImpl[1].kind == nnkGenericParams
 
 proc isGeneric*(t: typedesc): bool =
@@ -54,12 +54,27 @@ type Atom* = distinct int ##
   ## Default field name to be replaced for all Traits.
   ## Should be `distinct void` to prevent instantiation...
 
+macro forTuplefields(tup: typed, body: untyped): untyped =
+  result = newStmtList()
+  let tup =
+    if tup.kind != nnkTupleConstr:
+      tup.getTypeInst[^1]
+    else:
+      tup
+
+  for x in tup:
+    let body = body.copyNimTree()
+    body.insert 0:
+      genast(x):
+        type Field {.inject.} = x
+    result.add nnkIfStmt.newTree(nnkElifBranch.newTree(newLit(true), body))
+  result = nnkBlockStmt.newTree(newEmptyNode(), result)
+
+
 proc atomCount(p: typedesc[proc]): int =
-  {.warning[UnsafeDefault]: off.}
-  for field in default(paramsAsTuple(p(nil))).fields:
-    when field is Atom:
+  forTuplefields(paramsAsTuple(default(p))):
+    if Field is Atom:
       inc result
-  {.warning[UnsafeDefault]: on.}
 
 proc deAtomProcType(def, trait: NimNode): NimNode =
   let typImpl =
@@ -92,37 +107,41 @@ macro emitTupleType*(trait: typedesc): untyped =
         result.add deAtomProcType(prc, trait)
   desymFields(result)
 
+template procCheck(Field: typedesc) =
+  when Field.paramTypeAt(0) isnot Atom:
+    {.error: "First parameter should be Atom".}
+  when Field.atomCount() != 1:
+    {.error: "Should only be a single atom".}
+
+template traitCheck(T: typedesc) =
+  when T isnot distinct or T.distinctBase isnot tuple:
+    {.error: "Trait should be a distinct tuple".}
+  forTuplefields(T):
+    when Field isnot (proc | tuple):
+      {.error: "Trait fields should be proc or a tuple of procs".}
+    elif Field is (proc):
+      procCheck(Field)
+    else:
+      forTuplefields(Field):
+        when Field isnot (proc):
+          {.error: "Expected tuple of proc for overloaded trait procedures".}
+        procCheck(Field)
+
 type
-  GenericType* = concept type F ## Cannot instantiate it so it's just checked it's a `type T[...] = distinct tuple`
-    isGeneric(F)
-
-  TraitType* = concept type F ## Forces tuples to only have procs that have `Atom` inside first param
-    for field in default(distinctBase(F)).fields:
-      when field is (proc):
-        field.paramTypeAt(0) is Atom
-        atomCount(typeof(field)) == 1
-      else:
-        for child in field.fields:
-          child.paramTypeAt(0) is Atom
-          atomCount(typeof(child)) == 1
-    distinctBase(F) is tuple
-
-  ValidTraitor* = GenericType or TraitType
-
-  Traitor*[Traits: ValidTraitor] = ref object of RootObj ##
+  Traitor*[Traits] = ref object of RootObj ##
     ## Base Trait object used to ecapsulate the `vtable`
     vtable*: typeof(emitTupleType(Traits)) # emitTupleType(Traits) # This does not work cause Nim generics really hate fun.
     typeId*: int # Index in the type array
 
 
-  TypedTraitor*[T; Traits: ValidTraitor] {.final, acyclic.} = ref object of Traitor[Traits] ##
+  TypedTraitor*[T; Traits] {.final, acyclic.} = ref object of Traitor[Traits] ##
     ## Typed Trait object has a known data type and can be unpacked
     data*: T
 
-  StaticTraitor*[Traits: ValidTraitor] = concept st ## Allows generic dispatch on types that fit traits
+  StaticTraitor*[Traits] = concept st ## Allows generic dispatch on types that fit traits
     st.toTrait(Traits) is Traitor[Traits]
 
-  AnyTraitor*[Traits: ValidTraitor] = StaticTraitor[Traits] or Traitor[Traits] ## Allows writing a procedure that operates on both static and runtime.
+  AnyTraitor*[Traits] = StaticTraitor[Traits] or Traitor[Traits] ## Allows writing a procedure that operates on both static and runtime.
 
   InstInfo = typeof(instantiationInfo())
 
@@ -239,6 +258,16 @@ macro emitPointerProc(trait, instType: typed, err: static bool = false): untyped
           defRetType = ident"void"
         if implRet.kind == nnkEmpty:
           implRet = ident"void"
+
+        let def = def.copyNimTree
+        var hitNimCall = false
+
+        for i, x in def[1][^1]:
+          if x.kind == nnkIdent and x.eqIdent"nimcall":
+            if hitNimCall: ## Assume there is only one `nimcall`
+              def[1][^1].del(i)
+              break
+            hitNimCall = true
 
         result.add:
           genast(prc, defRetType, implRet, errorMsg = def.repr):
@@ -420,12 +449,14 @@ macro repackItImpl(id: int, table: static CacheSeq, trait: typed, body: untyped)
       genast(id):
         raise newException(ValueError, "Unexpected ID: " & $id)
 
-template implTrait*(trait: typedesc[ValidTraitor]) =
+template implTrait*(trait: typedesc) =
   ## Emits the `vtable` for the given `trait` and a procedure for types to convert to `trait`.
   ## It is checked that `trait` is only implemented once so repeated calls error.
   runnableExamples:
     type MyTrait = distinct tuple[bleh: proc(_: Atom, _: int) {.nimcall.}]
     implTrait MyTrait
+  when not trait.isGeneric():
+    traitCheck(trait)
   const info {.used.} = instantiationInfo(fullpaths = true)
   static:
     const (has, ind {.used.}) = traitsContain(trait)
@@ -457,7 +488,7 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
       static: typeTable.add T.getTypeInst()
       result = Traitor[traitTyp](
         TypedTraitor[T, traitTyp](
-          vtable: static(emitPointerProc(traitTyp, T)),
+          vtable: emitPointerProc(traitTyp, T),
           typeId: static(typeTable.len) - 1,
           data: ensureMove val
         )
@@ -475,7 +506,7 @@ template implTrait*(trait: typedesc[ValidTraitor]) =
 
   genProcs(Traitor[trait])
 
-template emitConverter*(T: typedesc, trait: typedesc[ValidTraitor]) =
+template emitConverter*(T: typedesc, trait: typedesc) =
   ## Emits a converter from `T` to `Traitor[trait]`
   ## This allows skipping of `val.toTrait(trait)`
   converter convToTrait*(val: sink T): Traitor[trait] {.inject.} = val.toTrait trait

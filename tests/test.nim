@@ -105,7 +105,6 @@ suite "Basic":
     type
       NotTrait = (int, string)
       NotDistinct = tuple[bleh: proc(_: Atom) {.nimcall.}]
-
     check not compiles(implTrait NotTrait)
     check not compiles(implTrait NotDistinct)
     check not compiles(10.toTrait DuckObject)
