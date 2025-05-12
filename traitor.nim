@@ -45,7 +45,7 @@ proc instGenTree(trait: NimNode): NimNode =
 
 macro isGenericImpl(t: typedesc): untyped =
   var t = t.getTypeImpl[^1]
-  newLit t.kind == nnkBracketExpr or t.getImpl[1].kind == nnkGenericParams
+  newLit t.kind == nnkSym and (t.kind == nnkBracketExpr or t.getImpl[1].kind == nnkGenericParams)
 
 proc isGeneric*(t: typedesc): bool =
   isGenericImpl(t)
