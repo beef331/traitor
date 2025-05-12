@@ -1,13 +1,13 @@
 nimTitle	traitor	traitor.html	module traitor		0
-nim	isGeneric	traitor.html#isGeneric,typedesc	proc isGeneric(t: typedesc): bool		51
-nim	Atom	traitor.html#Atom	type Atom		54
-nim	emitTupleType	traitor.html#emitTupleType.m,typedesc	macro emitTupleType(trait: typedesc): untyped		97
-nim	Traitor	traitor.html#Traitor	type Traitor		132
-nim	TypedTraitor	traitor.html#TypedTraitor	type TypedTraitor		138
-nim	StaticTraitor	traitor.html#StaticTraitor	type StaticTraitor		142
-nim	AnyTraitor	traitor.html#AnyTraitor	type AnyTraitor		145
-nim	setProc	traitor.html#setProc.t,TypedTraitor[T,Trait],untyped,proc	template setProc[T, Trait](traitor: TypedTraitor[T, Trait]; name: untyped; prc: proc)		181
-nim	getData	traitor.html#getData,Traitor[Traits],typedesc[T]	proc getData[T; Traits](tratr: Traitor[Traits]; _: typedesc[T]): var T		187
-nim	implTrait	traitor.html#implTrait.t,typedesc	template implTrait(trait: typedesc)		453
-nim	emitConverter	traitor.html#emitConverter.t,typedesc,typedesc	template emitConverter(T: typedesc; trait: typedesc)		510
-nim	joinTraits	traitor.html#joinTraits.m,varargs[typed]	macro joinTraits(traits: varargs[typed]): untyped		531
+nim	isGeneric	traitor.html#isGeneric,typedesc	proc isGeneric(t: typedesc): bool		50
+nim	Atom	traitor.html#Atom	type Atom		53
+nim	emitTupleType	traitor.html#emitTupleType.m,typedesc	macro emitTupleType(trait: typedesc): untyped		96
+nim	Traitor	traitor.html#Traitor	type Traitor		131
+nim	TypedTraitor	traitor.html#TypedTraitor	type TypedTraitor		137
+nim	StaticTraitor	traitor.html#StaticTraitor	type StaticTraitor		141
+nim	AnyTraitor	traitor.html#AnyTraitor	type AnyTraitor		144
+nim	setProc	traitor.html#setProc.t,TypedTraitor[T,Trait],untyped,proc	template setProc[T, Trait](traitor: TypedTraitor[T, Trait]; name: untyped; prc: proc)		180
+nim	getData	traitor.html#getData,Traitor[Traits],typedesc[T]	proc getData[T; Traits](tratr: Traitor[Traits]; _: typedesc[T]): var T		186
+nim	implTrait	traitor.html#implTrait.t,typedesc	template implTrait(trait: typedesc)		452
+nim	emitConverter	traitor.html#emitConverter.t,typedesc,typedesc	template emitConverter(T: typedesc; trait: typedesc)		509
+nim	joinTraits	traitor.html#joinTraits.m,varargs[typed]	macro joinTraits(traits: varargs[typed]): untyped		530
