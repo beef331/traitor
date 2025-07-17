@@ -1,6 +1,6 @@
 # Traitor
 
-A trait library made from bordem.
+A trait library made from boredom.
 
 [Docs](http://www.jasonbeetham.ca/traitor/)
 
