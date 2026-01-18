@@ -51,7 +51,7 @@ proc instGenTree(trait: NimNode): NimNode =
 
 macro isGenericImpl(t: typedesc): untyped =
   var t = t.getTypeImpl[^1]
-  newLit t.kind == nnkSym and (t.kind == nnkBracketExpr or t.getImpl[1].kind == nnkGenericParams)
+  newLit t.kind == nnkSym and (t.typeKind == ntyGenericBody or t.kind == nnkBracketExpr or t.getImpl[1].kind == nnkGenericParams)
 
 proc isGeneric*(t: typedesc): bool =
   isGenericImpl(t)
@@ -467,7 +467,7 @@ template implTrait*(trait: typedesc) =
   runnableExamples:
     type MyTrait = distinct tuple[bleh: proc(_: Atom, _: int) {.nimcall.}]
     implTrait MyTrait
-  when not trait.isGeneric():
+  when not typeof(trait).isGeneric():
     traitCheck(trait)
   const info {.used.} = instantiationInfo(fullpaths = true)
   static:

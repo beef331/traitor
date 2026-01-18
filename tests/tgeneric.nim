@@ -59,7 +59,7 @@ var subject = Subject[int]().toTrait(Reactable[int])
 
 type
   Trait = distinct tuple[
-    sendMessage: proc(self: Atom, message: openArray[char]): string
+    sendMessage: proc(self: Atom, message: openArray[char]): string {.nimcall.}
   ]
   Sender = object
 
@@ -69,10 +69,9 @@ proc sendMessage(self: Sender, message: openArray[char]): string = $message
 
 check Sender().toTrait(Trait).sendMessage("Hello, world!") == "['H', 'e', 'l', 'l', 'o', ',', ' ', 'w', 'o', 'r', 'l', 'd', '!']"
 
-import pkg/traitor
 type
   GenericTrait[T] = distinct tuple[
-    initialize: proc(self: Atom, userdata: T),
+    initialize: proc(self: Atom, userdata: T) {.nimcall.},
   ]
   FileSender[T] = object
   Message = object
