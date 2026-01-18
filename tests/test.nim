@@ -1,5 +1,5 @@
 import ../traitor
-import balls
+import pkg/balls
 type 
   BoundObject* = distinct tuple[
     getBounds: proc (a: var Atom, b: int): (int, int, int, int){.nimcall.},
@@ -26,6 +26,7 @@ proc getBounds(a: var MyObj, b: int): (int, int, int, int) =
   a.x = 100
   a.y = 300
 
+
 proc doOtherThing(a: MyObj): int = a.y * a.z * a.w
 
 proc quack(a: var MyObj) = discard
@@ -33,7 +34,6 @@ proc quack(a: var MyObj) = discard
 
 proc getBounds(a: var MyRef, b: int): (int, int, int, int) =
   result = (3, 2, 1, 30)
-  # It's a ptr to a ptr it seems so this doesnt work
   a.a = 300
 
 proc doOtherThing(a: MyRef): int = 300
@@ -73,20 +73,21 @@ emitConverter MyLateType, DuckObject
 
 suite "Basic":
   test "Basic data logic":
-    var myData = [Traitor[BoundObject] valA, valB, valC, valD, MyLateType(a: 300)]
-    check myData[0].getData(MyObj) == MyObj(x: 0, y: 10, z: 30, w: 100)
-    for x in myData.mitems:
-      if x of BoundObj[MyObj]:
-        check x.getData(MyObj).x == 0
-        check x.getBounds(3) == (0, 10, 30, 300)
-        let myObj = x.getData(MyObj)
-        check x.doOtherThing() == myObj.y * myObj.z * myObj.w
-      elif x of BoundObj[MyRef]:
-        check x.getBounds(3) == (3, 2, 1, 30)
-      elif x of BoundObj[MyOtherObj]:
-        check x.getBounds(3) == (10, 20, 30, 120)
-        check x.doOtherThing() == 300
 
+    var myData = [Traitor[BoundObject] valA, valB, valC, valD, MyLateType(a: 300)]
+    for x in myData.mitems:
+      x.unpackIt:
+        when it is BoundObj[MyObj]:
+          check it.data == MyObj(x: 0, y: 10, z: 30, w: 100)
+          check it.data.x == 0
+          check it.getBounds(3) == (0, 10, 30, 300)
+          let myObj = it.data
+          check it.doOtherThing() == myObj.y * myObj.z * myObj.w
+        elif it is BoundObj[MyRef]:
+          check it.getBounds(3) == (3, 2, 1, 30)
+        elif it is BoundObj[MyOtherObj]:
+          check it.getBounds(3) == (10, 20, 30, 120)
+          check it.doOtherThing() == 300
     check myData[0].getData(MyObj) == MyObj(x: 100, y: 300, z: 30, w: 100)
     check myData[2].getData(MyRef) == valC # Check the ref is the same
 

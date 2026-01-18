@@ -8,6 +8,12 @@
 import pkg/micros/introspection
 import std/[macros, genasts, strutils, strformat, typetraits, macrocache, tables]
 
+proc params(n: NimNode): NimNode =
+  if n.kind != nnkProcTy:
+    macros.params(n)
+  else:
+    n[0]
+
 proc replaceType(tree, arg, inst: NimNode) =
   for i, node in tree:
     if node.eqIdent arg:
@@ -147,7 +153,11 @@ type
 
 
 macro getIndex(trait, prc: typed, name: static string): untyped =
-  let impl = trait.getTypeImpl[1].getImpl[^1][0]
+  let impl =
+    if trait.getTypeImpl.kind == nnkDistinctTy:
+      trait.getTypeImpl[0]
+    else:
+      trait.getTypeImpl[1].getImpl[^1][0]
   var ind = 0
   result = nnkWhenStmt.newTree()
   for def in impl:
@@ -381,7 +391,8 @@ macro genProcs(origTrait: typedesc): untyped =
 
 macro doError(msg: static string, info: static InstInfo) =
   let node = newStmtList()
-  node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
+  when not defined(isNimskull):
+    node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
   error(msg, node)
 
 var implementedTraits {.compileTime.}: seq[(NimNode, InstInfo)]
@@ -406,7 +417,8 @@ macro genbodyCheck(t: typedesc, info: static InstInfo): untyped =
   ## Ensures `t` is a genericbody for `implTrait`
   if t.getTypeInst[1].typeKind == ntyGenericBody:
     let node = newStmtList()
-    node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
+    when not defined(isNimskull):
+      node.setLineInfo(LineInfo(fileName: info.filename, line: info.line, column: info.column))
     error("Cannot use `toTrait` due to lacking generic parameters on '" & t.getTypeInst[1].repr & "'", node)
 
 proc format(val: InstInfo): string =
@@ -459,7 +471,9 @@ template implTrait*(trait: typedesc) =
     traitCheck(trait)
   const info {.used.} = instantiationInfo(fullpaths = true)
   static:
-    const (has, ind {.used.}) = traitsContain(trait)
+    const (has, ind) = traitsContain(trait)
+    discard has
+    discard ind
     when has:
       doError("Trait named '" & $trait & "' was already implemented at: " & implementedTraits[ind][1].format, info)
     addTrait(trait, instantiationInfo(fullpaths = true))
@@ -481,7 +495,7 @@ template implTrait*(trait: typedesc) =
     ## This creates a `ref` type and moves `val` to it
     const procInfo = instantiationInfo(fullPaths = true)
     genbodyCheck(traitTyp, procInfo)
-    const missMsg = errorCheck[T](traitTyp)
+    const missMsg = errorCheck[T](typeof(traitTyp))
     when missMsg.len > 0:
       doError(missMsg, procInfo)
     else:
@@ -490,7 +504,7 @@ template implTrait*(trait: typedesc) =
         TypedTraitor[T, traitTyp](
           vtable: emitPointerProc(traitTyp, T),
           typeId: static(typeTable.len) - 1,
-          data: ensureMove val
+          data: move val
         )
       )
 

@@ -136,7 +136,7 @@ type
 proc init*(_: typedesc[FileStream], path: string, mode: FileMode = fmRead): FileStream =
   FileStream(file: open(path, mode))
 
-proc `=destroy`(fs: FileStream) =
+proc `=destroy`(fs: var FileStream) =
   close(fs.file)
 
 proc readData*(fs: var FileStream, dest: pointer, amount: int): int =
